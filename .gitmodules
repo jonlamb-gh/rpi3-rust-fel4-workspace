@@ -1,0 +1,3 @@
+[submodule "sel4twinkle-alloc-rs"]
+	path = sel4twinkle-alloc-rs
+	url = git@github.com:jonlamb-gh/sel4twinkle-alloc-rs.git

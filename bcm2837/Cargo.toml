@@ -1,0 +1,8 @@
+[package]
+name = "bcm2837"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+register = "0.2"

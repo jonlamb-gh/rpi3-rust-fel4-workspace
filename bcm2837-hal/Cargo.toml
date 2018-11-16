@@ -1,0 +1,18 @@
+[package]
+name = "bcm2837-hal"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+nb = "0.1"
+cortex-a = "2.2"
+bcm2837 = { path = "../bcm2837" }
+
+[dependencies.void]
+default-features = false
+version = "1.0"
+
+[dependencies.embedded-hal]
+features = ["unproven"]
+version = "0.2"
