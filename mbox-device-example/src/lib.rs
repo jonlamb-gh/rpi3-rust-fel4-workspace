@@ -24,18 +24,15 @@ pub fn handle_fault(badge: seL4_Word) {
 pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     debug_println!("\nHello from custom init fn\n");
 
-    // VideoCore Mailbox is at 0x3F00_B880
-    // TODO - use mbox::...
+    // VideoCore Mailbox
     let base_size = PAGE_BITS_4K as usize;
-    let base_paddr: seL4_Word = 0x3F00_B000;
-    let vc_mbox_offset: seL4_Word = 0x880;
-    let vc_mbox_paddr: seL4_Word = base_paddr + vc_mbox_offset;
+    let vc_mbox_paddr: seL4_Word = MBOX_BASE_PADDR + MBOX_BASE_OFFSET;
 
     let base_vaddr = allocator
-        .io_map(base_paddr, base_size)
+        .io_map(MBOX_BASE_PADDR, base_size)
         .expect("Failed to io_map");
 
-    let vc_mbox_vaddr = base_vaddr + vc_mbox_offset;
+    let vc_mbox_vaddr = base_vaddr + MBOX_BASE_OFFSET;
 
     debug_println!("Mapped VideoCore Mailbox device region");
     debug_println!(
@@ -46,7 +43,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     debug_println!(
         "  base vaddr = 0x{:X} base_paddr 0x{:X}",
         base_vaddr,
-        base_paddr,
+        MBOX_BASE_PADDR,
     );
 
     let mut _mbox = MBOX::from(vc_mbox_vaddr);
