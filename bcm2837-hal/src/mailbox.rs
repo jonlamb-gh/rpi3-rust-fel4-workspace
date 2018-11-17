@@ -32,14 +32,16 @@ mod response_status {
 #[repr(align(16))]
 pub struct Mailbox {
     mbox: MBOX,
+    buffer_paddr: u32,
     buffer: [u32; MAILBOX_BUFFER_LEN],
 }
 
 impl Mailbox {
-    pub fn new(mbox: MBOX) -> Self {
+    pub fn new(mbox: MBOX, buffer_paddr: u32, buffer: [u32; MAILBOX_BUFFER_LEN]) -> Self {
         Self {
             mbox,
-            buffer: [0; MAILBOX_BUFFER_LEN],
+            buffer_paddr,
+            buffer,
         }
     }
 
@@ -65,7 +67,10 @@ impl Mailbox {
             asm::nop();
         }
 
-        let buf_ptr = self.buffer.as_ptr() as u32;
+        let buf_ptr = self.buffer_paddr;
+        //let buf_ptr = self.buffer.as_ptr() as u32;
+        // TODO - need to allocate an untyped and get a paddr (same as would with DMA)?
+        //panic!("TODO - need physical address?? ptr = 0x:{:X}", buf_ptr);
 
         // write the address of our message to the mailbox with channel identifier
         self.mbox

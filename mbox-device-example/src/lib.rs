@@ -10,9 +10,12 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::serial::Serial;
+use bcm2837_hal::mailbox::{Mailbox, Channel};
+use bcm2837_hal::mailbox_msg::{Resp, MAILBOX_BUFFER_LEN};
+use bcm2837_hal::mailbox_msg::get_serial_num::GetSerialNumCmd;
 use core::fmt::Write;
 use sel4_sys::*;
-use sel4twinkle_alloc::{Allocator, PAGE_BITS_4K};
+use sel4twinkle_alloc::{Allocator, PAGE_BITS_4K, PMem};
 
 #[macro_use]
 mod macros;
@@ -46,7 +49,31 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         MBOX_BASE_PADDR,
     );
 
-    let mut _mbox = MBOX::from(vc_mbox_vaddr);
+    // Allocate a new page of memory with a physical address
+    // so we can give it to the VideoCore
+    let mbox_buffer_pmem: PMem = allocator.pmem_new_page(None)
+        .expect("Failed to allocate pmem");
+
+    debug_println!("Allocated pmem page");
+    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}",
+        mbox_buffer_pmem.vaddr,
+        mbox_buffer_pmem.paddr);
+
+    // TODO - need to allocate some untyped/etc region of memory
+    // such that I can get the paddr to give to the vc mbox core,
+    // same way as with DMA
+
+    let ptr = mbox_buffer_pmem.vaddr as *mut u64;
+    let mbox_buffer_ptr = ptr as *mut [u32; MAILBOX_BUFFER_LEN];
+    let mbox_buffer = unsafe { *mbox_buffer_ptr };
+    //let mbox_buffer: &[u32; MAILBOX_BUFFER_LEN] = ptr as _;
+    //let mbox_buffer: &[u32; MAILBOX_BUFFER_LEN] = mbox_buffer_pmem.vaddr as *const u32 as _;
+
+    let mut mbox: Mailbox = Mailbox::new(
+        MBOX::from(vc_mbox_vaddr),
+        mbox_buffer_pmem.paddr as _,
+        mbox_buffer,
+    );
 
     // GPIO
     let gpio_vaddr = allocator
@@ -54,7 +81,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         .expect("Failed to io_map");
 
     debug_println!("Mapped GPIO device region");
-    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}", gpio_vaddr, GPIO_PADDR,);
+    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}", gpio_vaddr, GPIO_PADDR);
 
     let mut gpio = GPIO::from(gpio_vaddr);
 
@@ -70,4 +97,14 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     let mut serial: Serial<UART1> = Serial::uart1(UART1::from(uart1_vaddr), 0, &mut gpio);
 
     writeln!(serial, "\nThis is output from a Serial<UART1>\n").ok();
+
+    writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
+
+    // Request serial number
+    let res: Resp = mbox.call(
+        Channel::Prop,
+        &GetSerialNumCmd {},
+    ).expect("TODO - mbox::call failed");
+
+    writeln!(serial, "Response = {:#?}", res).ok();
 }
