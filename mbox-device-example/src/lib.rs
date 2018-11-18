@@ -10,9 +10,7 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::mailbox::{Channel, Mailbox};
-use bcm2837_hal::mailbox_msg::get_serial_num::GetSerialNumCmd;
-use bcm2837_hal::mailbox_msg::get_temperature::GetTemperatureCmd;
-use bcm2837_hal::mailbox_msg::Resp;
+use bcm2837_hal::mailbox_msg::{Resp, GetSerialNumCmd, GetTemperatureCmd};
 use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;

@@ -1,8 +1,8 @@
-pub mod get_serial_num;
-pub mod get_temperature;
+mod get_serial_num;
+mod get_temperature;
 
-use self::get_serial_num::GetSerialNumResp;
-use self::get_temperature::GetTemperatureResp;
+pub use self::get_serial_num::{GetSerialNumCmd, GetSerialNumResp};
+pub use self::get_temperature::{GetTemperatureCmd, GetTemperatureResp};
 
 pub const REQUEST: u32 = 0;
 pub const MAILBOX_BUFFER_LEN: usize = 36;
