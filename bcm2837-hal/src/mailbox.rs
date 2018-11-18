@@ -67,6 +67,7 @@ impl Mailbox {
         compiler_fence(Ordering::Release);
 
         // TODO - wmb() ?
+        //unsafe { asm!("dmb st" : : : "memory") };
 
         // wait until we can write to the mailbox
         loop {
@@ -101,6 +102,7 @@ impl Mailbox {
             if ((resp & 0xF) == channel.into()) && ((resp & !0xF) == buf_ptr) {
 
                 // TODO - rmb() ?
+                //unsafe { asm!("dmb ld" : : : "memory") };
 
                 let status = unsafe { (*self.buffer).data[1] };
 

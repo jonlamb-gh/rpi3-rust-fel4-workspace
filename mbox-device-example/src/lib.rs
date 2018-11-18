@@ -130,12 +130,31 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
 
     // Request serial number
-    let res: Resp = mbox.call(
+    //let res: Resp = mbox.call(
+    let res = mbox.call(
         Channel::Prop,
         &GetSerialNumCmd {},
-    ).expect("TODO - mbox::call failed");
+    );
+    //.expect("TODO - mbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
+
+    // TODO - read it back
+    /*
+    allocator.dma_cache_op(
+        mbox_buffer_pmem.vaddr,
+        PAGE_SIZE_4K as _,
+        DMACacheOp::Invalidate);
+    */
+
+    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
+
+    for i in 0..MAILBOX_BUFFER_LEN {
+        let loc = unsafe { ptr.offset(i as _) };
+        let val: u32 = unsafe { ::core::ptr::read_volatile(loc) };
+        debug_println!("  0x{:X}", val);
+    }
+
 
     // TODO - TESTING
 
