@@ -1,6 +1,8 @@
 pub mod get_serial_num;
+pub mod get_temperature;
 
 use self::get_serial_num::GetSerialNumResp;
+use self::get_temperature::GetTemperatureResp;
 
 pub const REQUEST: u32 = 0;
 pub const MAILBOX_BUFFER_LEN: usize = 36;
@@ -13,6 +15,7 @@ pub trait MailboxMsgBufferConstructor {
 pub enum Tag {
     Last,
     GetSerialNum,
+    GetTemperature,
     #[doc(hidden)]
     _Extensible,
 }
@@ -22,6 +25,7 @@ impl From<Tag> for u32 {
         match tag {
             Tag::Last => 0,
             Tag::GetSerialNum => 0x0001_0004,
+            Tag::GetTemperature => 0x0003_0006,
             _ => unimplemented!(),
         }
     }
@@ -31,6 +35,7 @@ impl From<Tag> for u32 {
 pub enum Resp {
     Ack,
     GetSerialNumResp(GetSerialNumResp),
+    GetTemperatureResp(GetTemperatureResp),
 }
 
 // TODO - sanity checks/result?
@@ -39,6 +44,8 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for Resp {
         // TODO - would prefer to match
         if buffer[2] == Tag::GetSerialNum.into() {
             Resp::GetSerialNumResp(GetSerialNumResp::from(buffer))
+        } else if buffer[2] == Tag::GetTemperature.into() {
+            Resp::GetTemperatureResp(GetTemperatureResp::from(buffer))
         } else {
             Resp::Ack
         }

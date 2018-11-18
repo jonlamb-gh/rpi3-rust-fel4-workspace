@@ -11,6 +11,7 @@ use bcm2837_hal::bcm2837::mbox::{
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::get_serial_num::GetSerialNumCmd;
+use bcm2837_hal::mailbox_msg::get_temperature::GetTemperatureCmd;
 use bcm2837_hal::mailbox_msg::Resp;
 use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
@@ -105,6 +106,13 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     // Request serial number
     let res: Resp = mbox
         .call(Channel::Prop, &GetSerialNumCmd {})
+        .expect("Mailbox::call failed");
+
+    writeln!(serial, "Response = {:#?}", res).ok();
+
+    // Request temperature
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetTemperatureCmd { id: 0 })
         .expect("Mailbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
