@@ -57,9 +57,11 @@ impl Mailbox {
         channel: Channel,
         constructor: &T,
     ) -> Result<Resp, Error> {
+        /*
         unsafe {
             constructor.construct_buffer(&mut (*self.buffer).data);
         }
+        */
 
         // Insert a compiler fence that ensures that all stores to the
         // mbox buffer are finished before the GPU is signaled (which
