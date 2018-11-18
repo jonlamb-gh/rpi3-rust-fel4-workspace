@@ -1,8 +1,9 @@
 // TODO - need to figure out proper compiler_fence/dmb sync
+// TODO - core::slice::from_raw_parts_mut()
 
 use bcm2837::mbox::{MBOX, STATUS};
 use core::sync::atomic::{compiler_fence, Ordering};
-use cortex_a::asm;
+use cortex_a::{asm, barrier};
 
 use mailbox_msg::{MailboxMsgBufferConstructor, Resp, MAILBOX_BUFFER_LEN};
 
@@ -106,7 +107,8 @@ impl Mailbox {
             if ((resp & 0xF) == channel.into()) && ((resp & !0xF) == buf_ptr) {
                 // TODO - rmb() ?
                 //unsafe { asm!("dmb ld" : : : "memory") };
-                compiler_fence(Ordering::Release);
+                //compiler_fence(Ordering::Release);
+                unsafe { barrier::dsb(barrier::SY) };
 
                 //let status = unsafe { (*self.buffer).data[1] };
                 let status: u32 =
