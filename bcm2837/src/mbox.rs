@@ -18,6 +18,7 @@ pub const BASE_PADDR: u64 = MMIO_BASE + 0xB000;
 pub const BASE_OFFSET: u64 = 0x0880;
 pub const PADDR: u64 = BASE_PADDR + BASE_OFFSET;
 
+// TODO - valvers bug here? two status registers, 0x18 and 0x38
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
