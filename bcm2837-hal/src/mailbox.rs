@@ -1,3 +1,5 @@
+// TODO - need to figure out proper compiler_fence/dmb sync
+
 use bcm2837::mbox::{MBOX, STATUS};
 use core::sync::atomic::{compiler_fence, Ordering};
 use cortex_a::asm;
@@ -8,6 +10,8 @@ use mailbox_msg::{MailboxMsgBufferConstructor, Resp, MAILBOX_BUFFER_LEN};
 pub enum Error {
     /// The response buffer has error bit(s) set
     BadRequest,
+    /// Status word was not recognized
+    BadStatusWord,
     /// Unknown error
     Unknown,
     #[doc(hidden)]
@@ -37,7 +41,7 @@ pub struct Mailbox {
 
 #[repr(C)]
 #[repr(align(16))]
-pub struct MailboxBuffer {
+struct MailboxBuffer {
     pub data: [u32; MAILBOX_BUFFER_LEN],
 }
 
@@ -67,7 +71,7 @@ impl Mailbox {
         compiler_fence(Ordering::Release);
 
         // TODO - wmb() ?
-        unsafe { asm!("dmb st" : : : "memory") };
+        //unsafe { asm!("dmb st" : : : "memory") };
 
         // wait until we can write to the mailbox
         loop {
@@ -100,18 +104,19 @@ impl Mailbox {
 
             // is it a response to our message?
             if ((resp & 0xF) == channel.into()) && ((resp & !0xF) == buf_ptr) {
-
                 // TODO - rmb() ?
                 //unsafe { asm!("dmb ld" : : : "memory") };
+                compiler_fence(Ordering::Release);
 
-                let status = unsafe { (*self.buffer).data[1] };
+                //let status = unsafe { (*self.buffer).data[1] };
+                let status: u32 =
+                    unsafe { ::core::ptr::read_volatile((self.buffer as *mut u32).offset(1)) };
 
                 // is it a valid successful response?
                 return match status {
-                    //response_status::SUCCESS => Ok(Resp::from(&self.buffer)),
-                    response_status::SUCCESS => Ok(Resp::Ack),
+                    response_status::SUCCESS => Ok(Resp::from(unsafe { &(*self.buffer).data })),
                     response_status::ERROR => Err(Error::BadRequest),
-                    _ => Err(Error::Unknown),
+                    _ => Err(Error::BadStatusWord),
                 };
             }
         }

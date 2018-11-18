@@ -9,14 +9,13 @@ use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
-use bcm2837_hal::serial::Serial;
-use bcm2837_hal::mailbox::{Mailbox, Channel, MailboxBuffer};
-use bcm2837_hal::mailbox_msg::{Resp, MAILBOX_BUFFER_LEN};
-use bcm2837_hal::mailbox_msg::MailboxMsgBufferConstructor;
+use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::get_serial_num::GetSerialNumCmd;
+use bcm2837_hal::mailbox_msg::Resp;
+use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;
-use sel4twinkle_alloc::{Allocator, PAGE_BITS_4K, PAGE_SIZE_4K, PMem, DMACacheOp};
+use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
 
 #[macro_use]
 mod macros;
@@ -50,37 +49,6 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         MBOX_BASE_PADDR,
     );
 
-    /*
-    // Allocate a new page of memory with a physical address
-    // so we can give it to the VideoCore
-    let mbox_buffer_pmem: PMem = allocator.pmem_new_page(None)
-    let mbox_buffer_pmem: PMem = allocator.pmem_new_dma_page(None)
-        .expect("Failed to allocate pmem");
-
-    allocator.dma_cache_op(mbox_buffer_pmem.vaddr, PAGE_SIZE_4K as _, DMACacheOp::CleanInvalidate);
-
-    debug_println!("Allocated pmem page");
-    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}",
-        mbox_buffer_pmem.vaddr,
-        mbox_buffer_pmem.paddr);
-
-    // TODO - need to allocate some untyped/etc region of memory
-    // such that I can get the paddr to give to the vc mbox core,
-    // same way as with DMA
-
-    let ptr = mbox_buffer_pmem.vaddr as *mut u64;
-    let mbox_buffer_ptr = ptr as *mut [u32; MAILBOX_BUFFER_LEN];
-    let mbox_buffer = unsafe { *mbox_buffer_ptr };
-    //let mbox_buffer: &[u32; MAILBOX_BUFFER_LEN] = ptr as _;
-    //let mbox_buffer: &[u32; MAILBOX_BUFFER_LEN] = mbox_buffer_pmem.vaddr as *const u32 as _;
-
-    let mut mbox: Mailbox = Mailbox::new(
-        MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        mbox_buffer,
-    );
-    */
-
     // GPIO
     let gpio_vaddr = allocator
         .io_map(GPIO_PADDR, PAGE_BITS_4K as _)
@@ -106,19 +74,24 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     // Allocate a new page of memory with a physical address
     // so we can give it to the VideoCore
+    // TODO
     //let mbox_buffer_pmem: PMem = allocator.pmem_new_page(None)
-    let mbox_buffer_pmem: PMem = allocator.pmem_new_dma_page(None)
+    let mbox_buffer_pmem: PMem = allocator
+        .pmem_new_dma_page(None)
         .expect("Failed to allocate pmem/DMA page");
 
     allocator.dma_cache_op(
         mbox_buffer_pmem.vaddr,
         PAGE_SIZE_4K as _,
-        DMACacheOp::CleanInvalidate);
+        DMACacheOp::CleanInvalidate,
+    );
 
     debug_println!("Allocated pmem page");
-    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}",
+    debug_println!(
+        "  vaddr = 0x{:X} paddr = 0x{:X}",
         mbox_buffer_pmem.vaddr,
-        mbox_buffer_pmem.paddr);
+        mbox_buffer_pmem.paddr
+    );
 
     // Mailbox
     let mut mbox: Mailbox = Mailbox::new(
@@ -127,13 +100,12 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         mbox_buffer_pmem.vaddr as _,
     );
 
-    writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
+    writeln!(serial, "\nMailbox send GetSerialNumCmd\n").ok();
 
     // Request serial number
-    let res: Resp = mbox.call(
-        Channel::Prop,
-        &GetSerialNumCmd {},
-    ).expect("TODO - mbox::call failed");
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetSerialNumCmd {})
+        .expect("Mailbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
 }
