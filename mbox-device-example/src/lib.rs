@@ -10,12 +10,13 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::serial::Serial;
-use bcm2837_hal::mailbox::{Mailbox, Channel};
+use bcm2837_hal::mailbox::{Mailbox, Channel, MailboxBuffer};
 use bcm2837_hal::mailbox_msg::{Resp, MAILBOX_BUFFER_LEN};
+use bcm2837_hal::mailbox_msg::MailboxMsgBufferConstructor;
 use bcm2837_hal::mailbox_msg::get_serial_num::GetSerialNumCmd;
 use core::fmt::Write;
 use sel4_sys::*;
-use sel4twinkle_alloc::{Allocator, PAGE_BITS_4K, PMem};
+use sel4twinkle_alloc::{Allocator, PAGE_BITS_4K, PAGE_SIZE_4K, PMem, DMACacheOp};
 
 #[macro_use]
 mod macros;
@@ -49,10 +50,14 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         MBOX_BASE_PADDR,
     );
 
+    /*
     // Allocate a new page of memory with a physical address
     // so we can give it to the VideoCore
     let mbox_buffer_pmem: PMem = allocator.pmem_new_page(None)
+    let mbox_buffer_pmem: PMem = allocator.pmem_new_dma_page(None)
         .expect("Failed to allocate pmem");
+
+    allocator.dma_cache_op(mbox_buffer_pmem.vaddr, PAGE_SIZE_4K as _, DMACacheOp::CleanInvalidate);
 
     debug_println!("Allocated pmem page");
     debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}",
@@ -74,6 +79,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         mbox_buffer_pmem.paddr as _,
         mbox_buffer,
     );
+    */
 
     // GPIO
     let gpio_vaddr = allocator
@@ -98,6 +104,29 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     writeln!(serial, "\nThis is output from a Serial<UART1>\n").ok();
 
+    // Allocate a new page of memory with a physical address
+    // so we can give it to the VideoCore
+    //let mbox_buffer_pmem: PMem = allocator.pmem_new_page(None)
+    let mbox_buffer_pmem: PMem = allocator.pmem_new_dma_page(None)
+        .expect("Failed to allocate pmem/DMA page");
+
+    allocator.dma_cache_op(
+        mbox_buffer_pmem.vaddr,
+        PAGE_SIZE_4K as _,
+        DMACacheOp::CleanInvalidate);
+
+    debug_println!("Allocated pmem page");
+    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}",
+        mbox_buffer_pmem.vaddr,
+        mbox_buffer_pmem.paddr);
+
+    // Mailbox
+    let mut mbox: Mailbox = Mailbox::new(
+        MBOX::from(vc_mbox_vaddr),
+        mbox_buffer_pmem.paddr as _,
+        mbox_buffer_pmem.vaddr as _,
+    );
+
     writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
 
     // Request serial number
@@ -107,4 +136,56 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     ).expect("TODO - mbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
+
+    // TODO - TESTING
+
+    /*
+    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
+    let mb_buff = ptr as *mut MailboxBuffer;
+    //let mb_ref = mb_buff as &mut MailboxBuffer;
+
+    let mut mbox: Mailbox = Mailbox::new(
+        MBOX::from(vc_mbox_vaddr),
+        mbox_buffer_pmem.paddr as _,
+        *mb_buff,
+    );
+    */
+
+    // TODO - TESTING
+
+    /*
+    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
+    let mb_buff = ptr as *mut MailboxBuffer;
+
+    for i in 0..MAILBOX_BUFFER_LEN {
+        let loc = unsafe { ptr.offset(i as _) };
+
+        unsafe { ::core::ptr::write_volatile(loc, 0xFF_FF_FF_00 | i as u32) };
+    }
+
+    let cmd = GetSerialNumCmd {};
+
+    unsafe { cmd.construct_buffer(&mut (*mb_buff).data) };
+
+    debug_println!("\n READ-BACK\n");
+    unsafe {
+        for w in (*mb_buff).data.iter() {
+            debug_println!("  0x{:X}", w);
+        }
+    }
+    */
+
+    // TODO - TESTING
+
+    /*
+    writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
+
+    // Request serial number
+    let res: Resp = mbox.call(
+        Channel::Prop,
+        &GetSerialNumCmd {},
+    ).expect("TODO - mbox::call failed");
+
+    writeln!(serial, "Response = {:#?}", res).ok();
+    */
 }

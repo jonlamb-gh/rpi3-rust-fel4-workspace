@@ -28,20 +28,26 @@ mod response_status {
     pub const ERROR: u32 = 0x8000_0001;
 }
 
-#[repr(C)]
-#[repr(align(16))]
+/// Mailbox abstraction
 pub struct Mailbox {
     mbox: MBOX,
-    buffer_paddr: u32,
-    buffer: [u32; MAILBOX_BUFFER_LEN],
+    buffer_vc_paddr: u32,
+    buffer: *mut MailboxBuffer,
+}
+
+#[repr(C)]
+#[repr(align(16))]
+pub struct MailboxBuffer {
+    pub data: [u32; MAILBOX_BUFFER_LEN],
 }
 
 impl Mailbox {
-    pub fn new(mbox: MBOX, buffer_paddr: u32, buffer: [u32; MAILBOX_BUFFER_LEN]) -> Self {
+    pub fn new(mbox: MBOX, buffer_vc_paddr: u32, buffer_vaddr: u32) -> Self {
         Self {
             mbox,
-            buffer_paddr,
-            buffer,
+            buffer_vc_paddr,
+            buffer: buffer_vaddr as *mut MailboxBuffer,
+            //buffer,
         }
     }
 
@@ -51,12 +57,16 @@ impl Mailbox {
         channel: Channel,
         constructor: &T,
     ) -> Result<Resp, Error> {
-        constructor.construct_buffer(&mut self.buffer);
+        unsafe {
+            constructor.construct_buffer(&mut (*self.buffer).data);
+        }
 
         // Insert a compiler fence that ensures that all stores to the
         // mbox buffer are finished before the GPU is signaled (which
         // is done by a store operation as well).
         compiler_fence(Ordering::Release);
+
+        // TODO - wmb() ?
 
         // wait until we can write to the mailbox
         loop {
@@ -67,10 +77,7 @@ impl Mailbox {
             asm::nop();
         }
 
-        let buf_ptr = self.buffer_paddr;
-        //let buf_ptr = self.buffer.as_ptr() as u32;
-        // TODO - need to allocate an untyped and get a paddr (same as would with DMA)?
-        //panic!("TODO - need physical address?? ptr = 0x:{:X}", buf_ptr);
+        let buf_ptr = self.buffer_vc_paddr;
 
         // write the address of our message to the mailbox with channel identifier
         self.mbox
@@ -92,9 +99,15 @@ impl Mailbox {
 
             // is it a response to our message?
             if ((resp & 0xF) == channel.into()) && ((resp & !0xF) == buf_ptr) {
+
+                // TODO - rmb() ?
+
+                let status = unsafe { (*self.buffer).data[1] };
+
                 // is it a valid successful response?
-                return match self.buffer[1] {
-                    response_status::SUCCESS => Ok(Resp::from(&self.buffer)),
+                return match status {
+                    //response_status::SUCCESS => Ok(Resp::from(&self.buffer)),
+                    response_status::SUCCESS => Ok(Resp::Ack),
                     response_status::ERROR => Err(Error::BadRequest),
                     _ => Err(Error::Unknown),
                 };
