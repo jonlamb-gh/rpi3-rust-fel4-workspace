@@ -129,6 +129,8 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
 
+    /*
+     * THIS WORKS
     unsafe {
         let ptr = mbox_buffer_pmem.vaddr as *mut u32;
 
@@ -141,6 +143,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         ::core::ptr::write_volatile(ptr.offset(6), 0);
         ::core::ptr::write_volatile(ptr.offset(7), 0);
     }
+    */
 
     // Request serial number
     //let res: Resp = mbox.call(
