@@ -129,92 +129,6 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
 
-    /*
-     * THIS WORKS
-    unsafe {
-        let ptr = mbox_buffer_pmem.vaddr as *mut u32;
-
-        ::core::ptr::write_volatile(ptr.offset(0), 8 * 4);
-        ::core::ptr::write_volatile(ptr.offset(1), 0);
-        ::core::ptr::write_volatile(ptr.offset(2), 0x0001_0004);
-        ::core::ptr::write_volatile(ptr.offset(3), 8);
-        ::core::ptr::write_volatile(ptr.offset(4), 8);
-        ::core::ptr::write_volatile(ptr.offset(5), 0);
-        ::core::ptr::write_volatile(ptr.offset(6), 0);
-        ::core::ptr::write_volatile(ptr.offset(7), 0);
-    }
-    */
-
-    // Request serial number
-    //let res: Resp = mbox.call(
-    let res = mbox.call(
-        Channel::Prop,
-        &GetSerialNumCmd {},
-    );
-    //.expect("TODO - mbox::call failed");
-
-    //writeln!(serial, "Response = {:#?}", res).ok();
-
-    // TODO - read it back
-    /*
-    allocator.dma_cache_op(
-        mbox_buffer_pmem.vaddr,
-        PAGE_SIZE_4K as _,
-        DMACacheOp::Invalidate);
-    */
-
-    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
-
-    for i in 0..MAILBOX_BUFFER_LEN {
-        let loc = unsafe { ptr.offset(i as _) };
-        let val: u32 = unsafe { ::core::ptr::read_volatile(loc) };
-        debug_println!("  0x{:X}", val);
-    }
-
-
-    // TODO - TESTING
-
-    /*
-    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
-    let mb_buff = ptr as *mut MailboxBuffer;
-    //let mb_ref = mb_buff as &mut MailboxBuffer;
-
-    let mut mbox: Mailbox = Mailbox::new(
-        MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        *mb_buff,
-    );
-    */
-
-    // TODO - TESTING
-
-    /*
-    let ptr = mbox_buffer_pmem.vaddr as *mut u32;
-    let mb_buff = ptr as *mut MailboxBuffer;
-
-    for i in 0..MAILBOX_BUFFER_LEN {
-        let loc = unsafe { ptr.offset(i as _) };
-
-        unsafe { ::core::ptr::write_volatile(loc, 0xFF_FF_FF_00 | i as u32) };
-    }
-
-    let cmd = GetSerialNumCmd {};
-
-    unsafe { cmd.construct_buffer(&mut (*mb_buff).data) };
-
-    debug_println!("\n READ-BACK\n");
-    unsafe {
-        for w in (*mb_buff).data.iter() {
-            debug_println!("  0x{:X}", w);
-        }
-    }
-    */
-
-    // TODO - TESTING
-
-    /*
-    writeln!(serial, "Mailbox send GetSerialNumCmd").ok();
-
     // Request serial number
     let res: Resp = mbox.call(
         Channel::Prop,
@@ -222,5 +136,4 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     ).expect("TODO - mbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
-    */
 }
