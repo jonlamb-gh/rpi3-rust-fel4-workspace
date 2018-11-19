@@ -106,11 +106,17 @@ Response = GetSerialNumResp(
         serial_number: 0
     }
 )
-Response = GetTemperatureResp(
-    GetTemperatureResp {
-        id: 0,
-        value: 25000
+
+Mailbox send FramebufferCmd
+
+Response = FramebufferResp(
+    FramebufferResp {
+        phy_width: 240,
+        phy_height: 240,
+        pitch: 960,
+        pixels_ptr: 0x000000003c100000
     }
 )
+
 QEMU: Terminated
 ```

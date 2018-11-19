@@ -1,5 +1,5 @@
 // TODO - need to figure out proper compiler_fence/dmb sync
-// TODO - core::slice::from_raw_parts_mut()
+// TODO - try out core::slice::from_raw_parts_mut()
 
 use bcm2837::mbox::{MBOX, STATUS};
 use core::sync::atomic::{compiler_fence, Ordering};
@@ -52,7 +52,6 @@ impl Mailbox {
             mbox,
             buffer_vc_paddr,
             buffer: buffer_vaddr as *mut MailboxBuffer,
-            //buffer,
         }
     }
 
@@ -108,7 +107,7 @@ impl Mailbox {
                 // TODO - rmb() ?
                 //unsafe { asm!("dmb ld" : : : "memory") };
                 //compiler_fence(Ordering::Release);
-                unsafe { barrier::dsb(barrier::SY) };
+                unsafe { barrier::dmb(barrier::SY) };
 
                 //let status = unsafe { (*self.buffer).data[1] };
                 let status: u32 =

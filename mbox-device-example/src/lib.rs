@@ -10,7 +10,7 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::mailbox::{Channel, Mailbox};
-use bcm2837_hal::mailbox_msg::{GetSerialNumCmd, GetTemperatureCmd, Resp};
+use bcm2837_hal::mailbox_msg::{FramebufferCmd, GetSerialNumCmd, Resp};
 use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;
@@ -108,10 +108,21 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     writeln!(serial, "Response = {:#?}", res).ok();
 
-    // Request temperature
+    writeln!(serial, "\nMailbox send FramebufferCmd\n").ok();
+
+    // Request frame buffer
     let res: Resp = mbox
-        .call(Channel::Prop, &GetTemperatureCmd { id: 0 })
-        .expect("Mailbox::call failed");
+        .call(
+            Channel::Prop,
+            &FramebufferCmd {
+                phy_width: 240,
+                phy_height: 240,
+                virt_width: 240,
+                virt_height: 240,
+                x_offset: 0,
+                y_offset: 0,
+            },
+        ).expect("Mailbox::call failed");
 
     writeln!(serial, "Response = {:#?}", res).ok();
 }
