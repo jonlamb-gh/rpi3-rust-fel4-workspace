@@ -99,4 +99,8 @@ impl FramebufferResp {
         let offset = (y * (self.pitch / 4)) + x;
         unsafe { ptr::write(self.pixels_ptr.offset(offset as _), value) };
     }
+
+    pub fn fb_paddr(&self) -> u32 {
+        self.pixels_ptr as _
+    }
 }

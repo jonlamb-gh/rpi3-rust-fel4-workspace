@@ -110,6 +110,10 @@ impl Display {
         }
     }
 
+    pub fn framebuffer_paddr(&self) -> u32 {
+        self.fb_data.fb_paddr()
+    }
+
     pub fn width(&self) -> u32 {
         self.fb_data.phy_width
     }

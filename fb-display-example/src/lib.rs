@@ -83,8 +83,12 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         y_offset: 0,
     };
 
-    // TODO - need to obtain a cap to the paddr returned by the videocore
     let mut display = Display::new(Some(fb_cfg), &mut mbox).expect("Display::new() failed");
+
+    // TODO - need to obtain a cap to the paddr returned by the videocore
+    let pixels_paddr = display.framebuffer_paddr();
+
+    debug_println!("VideoCore framebuffer at paddr 0x{:X}", pixels_paddr);
 
     display.fill_color(0xFF00FF_u32.into());
 
