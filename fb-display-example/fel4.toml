@@ -1,0 +1,53 @@
+[fel4]
+artifact-path = "artifacts"
+target-specs-path = "target_specs"
+target = "aarch64-sel4-fel4"
+platform = "rpi3"
+
+[aarch64-sel4-fel4]
+BuildWithCommonSimulationSettings = true
+KernelOptimisation = "-O2"
+KernelVerificationBuild = false
+KernelBenchmarks = "none"
+KernelFastpath = true
+LibSel4FunctionAttributes = "public"
+KernelNumDomains = 1
+HardwareDebugAPI = false
+KernelFWholeProgram = false
+KernelResetChunkBits = 8
+LibSel4DebugAllocBufferEntries = 0
+LibSel4DebugFunctionInstrumentation = "none"
+KernelNumPriorities = 256
+KernelStackBits = 12
+KernelTimeSlice = 5
+KernelTimerTickMS = 2
+# the following keys are specific to aarch64-sel4-fel4 targets
+KernelArch = "arm"
+KernelArmSel4Arch = "aarch64"
+KernelMaxNumNodes = 1
+KernelRetypeFanOutLimit = 256
+KernelRootCNodeSizeBits = 19
+KernelMaxNumBootinfoUntypedCaps = 230
+KernelDebugDisableBranchPrediction = false
+KernelFPUMaxRestoresSinceSwitch = 64
+KernelMaxNumWorkUnitsPerPreemption = 100
+LinkPageSize = 4096
+UserLinkerGCSections = false
+
+[aarch64-sel4-fel4.debug]
+KernelDebugBuild = true
+KernelPrinting = true
+KernelColourPrinting = true
+KernelUserStackTraceLength = 16
+
+[aarch64-sel4-fel4.release]
+KernelDebugBuild = false
+KernelPrinting = false
+
+[aarch64-sel4-fel4.tx1]
+KernelARMPlatform = "tx1"
+ElfloaderImage = "binary"
+
+[aarch64-sel4-fel4.rpi3]
+KernelARMPlatform = "rpi3"
+ElfloaderImage = "binary"

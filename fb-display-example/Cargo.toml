@@ -1,0 +1,27 @@
+[package]
+name = "fb-display-test"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+libsel4-sys = {git = "https://github.com/jonlamb-gh/libsel4-sys.git", branch = "add-rpi3-support"}
+sel4twinkle-alloc = { path = "../sel4twinkle-alloc-rs" }
+bcm2837-hal = { path = "../bcm2837-hal" }
+display = { path = "../display" }
+
+[dependencies.wee_alloc]
+version = "0.4"
+features = ["static_array_backend"]
+optional = true
+
+[dependencies.proptest]
+version = "0.8.6"
+default-features = false
+features = ["alloc", "nightly"]
+optional = true
+
+[features]
+default = []
+alloc = ["wee_alloc"]
+test = ["alloc", "proptest"]

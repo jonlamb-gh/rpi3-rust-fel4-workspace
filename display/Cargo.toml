@@ -1,0 +1,10 @@
+[package]
+name = "display"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+bcm2837-hal = { path = "../bcm2837-hal" }
+embedded-graphics = "0.4"
+rgb = "0.8"
