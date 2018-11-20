@@ -87,8 +87,19 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     // TODO - need to obtain a cap to the paddr returned by the videocore
     let pixels_paddr = display.framebuffer_paddr();
+    let pixels_size = 0;
 
     debug_println!("VideoCore framebuffer at paddr 0x{:X}", pixels_paddr);
+
+    let vaddr = allocator.vspace_new_pages_at(
+        Some(pixels_paddr as seL4_Word),
+        1,
+        PAGE_BITS_4K as _,
+        unsafe { seL4_CapRights_new(1, 1, 1) },
+        0,
+        false,
+        None,
+    ).expect("vspace_new_pages_at failed");
 
     display.fill_color(0xFF00FF_u32.into());
 
