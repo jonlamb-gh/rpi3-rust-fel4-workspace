@@ -1,0 +1,11 @@
+[package]
+name = "gui"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+display = { path = "../display" }
+embedded-graphics = "0.4"
+rgb = "0.8"
+heapless = "0.4"
