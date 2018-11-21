@@ -8,8 +8,8 @@ extern crate sel4twinkle_alloc;
 use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
 };
-use bcm2837_hal::mailbox::Mailbox;
-use bcm2837_hal::mailbox_msg::FramebufferCmd;
+use bcm2837_hal::mailbox::{Channel, Mailbox};
+use bcm2837_hal::mailbox_msg::{FramebufferCmd, Resp};
 use display::Display;
 use sel4_sys::*;
 use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
@@ -63,7 +63,6 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         mbox_buffer_pmem.paddr
     );
 
-    // Mailbox
     let mut mbox: Mailbox = Mailbox::new(
         MBOX::from(vc_mbox_vaddr),
         mbox_buffer_pmem.paddr as _,
@@ -72,38 +71,46 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     debug_println!("\nCreating a Display\n");
 
+    // TODO - need to go enable full GPU region in the kernel devices
+    let desired_width = 240;
+    let desired_height = 240;
     let fb_cfg = FramebufferCmd {
-        phy_width: 800,
-        phy_height: 480,
-
-        virt_width: 800,
-        virt_height: 480,
-
+        phy_width: desired_width,
+        phy_height: desired_height,
+        virt_width: desired_width,
+        virt_height: desired_height,
         x_offset: 0,
         y_offset: 0,
     };
 
-    let mut display = Display::new(Some(fb_cfg), &mut mbox).expect("Display::new() failed");
+    let resp: Resp = mbox
+        .call(Channel::Prop, &fb_cfg)
+        .expect("Mailbox::call failed");
 
-    // TODO - need to obtain a cap to the paddr returned by the videocore
-    let pixels_paddr = display.framebuffer_paddr();
-    let pixels_size = 0;
+    let fb_resp = if let Resp::FramebufferResp(r) = resp {
+        r
+    } else {
+        panic!("Bad response {:#?}", resp);
+    };
 
-    debug_println!("VideoCore framebuffer at paddr 0x{:X}", pixels_paddr);
+    debug_println!("{:#?}", fb_resp);
 
-    let vaddr = allocator.vspace_new_pages_at(
-        Some(pixels_paddr as seL4_Word),
-        1,
-        PAGE_BITS_4K as _,
-        unsafe { seL4_CapRights_new(1, 1, 1) },
-        0,
-        false,
-        None,
-    ).expect("vspace_new_pages_at failed");
+    // TODO - should be virt, pitch * virt_height
+    let mem_size_bytes = (fb_resp.phy_height * fb_resp.pitch) as seL4_Word;
+    let pages = 1 + mem_size_bytes / PAGE_SIZE_4K;
+
+    // Map in the GPU memory
+    let pmem = allocator
+        .pmem_new_pages_at_paddr(
+            fb_resp.paddr as _,
+            pages as _,
+            // Not cacheable
+            0,
+        ).expect("pmem_new_pages_at_paddr");
+
+    allocator.dma_cache_op(pmem.vaddr, mem_size_bytes as _, DMACacheOp::CleanInvalidate);
+
+    let mut display = Display::new(fb_resp, pmem.vaddr);
 
     display.fill_color(0xFF00FF_u32.into());
-
-    loop {
-        // TODO
-    }
 }

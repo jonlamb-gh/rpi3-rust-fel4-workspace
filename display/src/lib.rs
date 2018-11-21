@@ -4,12 +4,12 @@ extern crate bcm2837_hal;
 extern crate embedded_graphics;
 extern crate rgb;
 
+use core::ptr;
 use embedded_graphics::drawable::Pixel;
 use embedded_graphics::pixelcolor::PixelColor;
 use embedded_graphics::Drawing;
 //use mailbox::msg::blank_screen::BlankScreenCmd;
-use bcm2837_hal::mailbox::{Channel, Error as MboxError, Mailbox};
-use bcm2837_hal::mailbox_msg::{FramebufferCmd, FramebufferResp, Resp};
+use bcm2837_hal::mailbox_msg::FramebufferResp;
 use rgb::*;
 
 // TODO - until I figure out how to cleanly use embedded-graphics IntoIterator
@@ -78,40 +78,23 @@ impl DisplayColor {
     }
 }
 
-const DEFAULT_FB_CFG: FramebufferCmd = FramebufferCmd {
-    phy_width: 240,
-    phy_height: 240,
-
-    virt_width: 240,
-    virt_height: 240,
-
-    x_offset: 0,
-    y_offset: 0,
-};
-
 pub struct Display {
     fb_data: FramebufferResp,
+    fb_ptr: *mut u32,
 }
 
 impl Display {
-    pub fn new(cfgcmd: Option<FramebufferCmd>, mbox: &mut Mailbox) -> Result<Self, MboxError> {
-        let cmd = if let Some(cfgcmd) = cfgcmd {
-            cfgcmd
-        } else {
-            DEFAULT_FB_CFG
-        };
-
-        let resp = mbox.call(Channel::Prop, &cmd)?;
-
-        if let Resp::FramebufferResp(fb_resp) = resp {
-            Ok(Display::from(fb_resp))
-        } else {
-            Err(MboxError::Unknown)
+    pub fn new(fb_data: FramebufferResp, fb_vaddr: u64) -> Self {
+        Self {
+            fb_data,
+            fb_ptr: fb_vaddr as *mut u32,
         }
     }
 
-    pub fn framebuffer_paddr(&self) -> u32 {
-        self.fb_data.fb_paddr()
+    /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
+    pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
+        let offset = (y * (self.fb_data.pitch / 4)) + x;
+        unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
     }
 
     pub fn width(&self) -> u32 {
@@ -125,7 +108,7 @@ impl Display {
     pub fn fill_color(&mut self, color: DisplayColor) {
         for y in 0..self.fb_data.phy_height {
             for x in 0..self.fb_data.phy_width {
-                self.fb_data.set_pixel(x, y, color.into());
+                self.set_pixel(x, y, color.into());
             }
         }
     }
@@ -138,12 +121,6 @@ impl Display {
     */
 }
 
-impl From<FramebufferResp> for Display {
-    fn from(resp: FramebufferResp) -> Display {
-        Display { fb_data: resp }
-    }
-}
-
 impl Drawing<DisplayColor> for Display {
     fn draw<T>(&mut self, item_pixels: T)
     where
@@ -154,7 +131,7 @@ impl Drawing<DisplayColor> for Display {
                 continue;
             }
 
-            self.fb_data.set_pixel(coord[0], coord[1], u32::from(color));
+            self.set_pixel(coord[0], coord[1], u32::from(color));
         }
     }
 }

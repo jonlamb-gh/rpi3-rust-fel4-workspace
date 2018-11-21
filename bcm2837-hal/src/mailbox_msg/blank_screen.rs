@@ -7,37 +7,35 @@ pub const CMD_LEN: u32 = 8;
 pub const RESP_LEN: u32 = 8;
 
 #[derive(Debug, Copy, Clone)]
-pub struct GetTemperatureCmd {
-    pub id: u32,
+pub struct BlankScreenCmd {
+    pub state: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct GetTemperatureResp {
-    pub id: u32,
-    pub value: u32,
+pub struct BlankScreenResp {
+    pub state: bool,
 }
 
-impl MailboxMsgBufferConstructor for GetTemperatureCmd {
+impl MailboxMsgBufferConstructor for BlankScreenCmd {
     fn construct_buffer(&self, buffer: &mut [u32; MAILBOX_BUFFER_LEN]) {
         buffer[0] = 8 * 4;
         buffer[1] = REQUEST;
-        buffer[2] = Tag::GetTemperature.into();
+        buffer[2] = Tag::BlankScreen.into();
         buffer[3] = CMD_LEN;
         buffer[4] = RESP_LEN;
-        buffer[5] = self.id;
+        buffer[5] = if self.state { 1 } else { 0 };
         buffer[6] = 0;
         buffer[7] = Tag::Last.into();
     }
 }
 
 // TODO - sanity checks/result?
-impl From<&[u32; MAILBOX_BUFFER_LEN]> for GetTemperatureResp {
-    fn from(buffer: &[u32; MAILBOX_BUFFER_LEN]) -> GetTemperatureResp {
-        assert_eq!(buffer[2], Tag::GetTemperature.into());
+impl From<&[u32; MAILBOX_BUFFER_LEN]> for BlankScreenResp {
+    fn from(buffer: &[u32; MAILBOX_BUFFER_LEN]) -> BlankScreenResp {
+        assert_eq!(buffer[2], Tag::BlankScreen.into());
         //assert_eq!(buffer[3], RESP_LEN);
-        GetTemperatureResp {
-            id: buffer[5],
-            value: buffer[6],
+        BlankScreenResp {
+            state: if buffer[5] == 0 { false } else { true },
         }
     }
 }

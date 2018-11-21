@@ -10,7 +10,7 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::mailbox::{Channel, Mailbox};
-use bcm2837_hal::mailbox_msg::{FramebufferCmd, GetSerialNumCmd, Resp};
+use bcm2837_hal::mailbox_msg::*;
 use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;
@@ -100,18 +100,37 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     );
 
     writeln!(serial, "\nMailbox send GetSerialNumCmd\n").ok();
-
-    // Request serial number
     let res: Resp = mbox
-        .call(Channel::Prop, &GetSerialNumCmd {})
+        .call(Channel::Prop, &GetSerialNumCmd)
         .expect("Mailbox::call failed");
+    writeln!(serial, "Response = {:#?}", res).ok();
 
+    writeln!(serial, "\nMailbox send GetTemperatureCmd\n").ok();
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetTemperatureCmd { id: 0 })
+        .expect("Mailbox::call failed");
+    writeln!(serial, "Response = {:#?}", res).ok();
+
+    writeln!(serial, "\nMailbox send GetArmMemCmd\n").ok();
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetArmMemCmd)
+        .expect("Mailbox::call failed");
+    writeln!(serial, "Response = {:#?}", res).ok();
+
+    writeln!(serial, "\nMailbox send GetVcMemCmd\n").ok();
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetVcMemCmd)
+        .expect("Mailbox::call failed");
+    writeln!(serial, "Response = {:#?}", res).ok();
+
+    writeln!(serial, "\nMailbox send GetFbPhySizeCmd\n").ok();
+    let res: Resp = mbox
+        .call(Channel::Prop, &GetFbPhySizeCmd)
+        .expect("Mailbox::call failed");
     writeln!(serial, "Response = {:#?}", res).ok();
 
     writeln!(serial, "\nMailbox send FramebufferCmd\n").ok();
-
-    // Request frame buffer
-    let res: Resp = mbox
+    let fb_res: Resp = mbox
         .call(
             Channel::Prop,
             &FramebufferCmd {
@@ -123,6 +142,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
                 y_offset: 0,
             },
         ).expect("Mailbox::call failed");
+    writeln!(serial, "Response = {:#?}", fb_res).ok();
 
-    writeln!(serial, "Response = {:#?}", res).ok();
+    writeln!(serial, "\nAll done").ok();
 }

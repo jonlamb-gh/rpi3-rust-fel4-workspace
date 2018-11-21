@@ -1,5 +1,3 @@
-use core::ptr;
-
 use super::MailboxMsgBufferConstructor;
 use super::Tag;
 use super::MAILBOX_BUFFER_LEN;
@@ -24,7 +22,8 @@ pub struct FramebufferResp {
     pub phy_height: u32,
 
     pub pitch: u32,
-    pixels_ptr: *mut u32,
+
+    pub paddr: u32,
 }
 
 impl MailboxMsgBufferConstructor for FramebufferCmd {
@@ -84,23 +83,13 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for FramebufferResp {
         // buffer
         assert_ne!(buffer[28], 0);
 
+        let bus_paddr = buffer[28];
+
         FramebufferResp {
             phy_width: buffer[5],
             phy_height: buffer[6],
             pitch: buffer[33],
-            pixels_ptr: (buffer[28] & 0x3FFF_FFFF) as *mut _,
+            paddr: bus_paddr & 0x3FFF_FFFF,
         }
-    }
-}
-
-impl FramebufferResp {
-    /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
-    pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
-        let offset = (y * (self.pitch / 4)) + x;
-        unsafe { ptr::write(self.pixels_ptr.offset(offset as _), value) };
-    }
-
-    pub fn fb_paddr(&self) -> u32 {
-        self.pixels_ptr as _
     }
 }
