@@ -1,0 +1,14 @@
+[package]
+name = "clock-display"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2015"
+
+[dependencies]
+libsel4-sys = {git = "https://github.com/jonlamb-gh/libsel4-sys.git", branch = "add-rpi3-support"}
+sel4twinkle-alloc = { path = "../sel4twinkle-alloc-rs" }
+bcm2837-hal = { path = "../bcm2837-hal" }
+display = { path = "../display" }
+gui = { path = "../gui" }
+embedded-graphics = "*"
+rgb = "*"
