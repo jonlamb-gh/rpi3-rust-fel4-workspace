@@ -8,12 +8,12 @@ pub const RESP_LEN: u32 = 8;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BlankScreenCmd {
-    pub state: bool,
+    pub power_down: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct BlankScreenResp {
-    pub state: bool,
+    pub power_down: bool,
 }
 
 impl MailboxMsgBufferConstructor for BlankScreenCmd {
@@ -23,7 +23,7 @@ impl MailboxMsgBufferConstructor for BlankScreenCmd {
         buffer[2] = Tag::BlankScreen.into();
         buffer[3] = CMD_LEN;
         buffer[4] = RESP_LEN;
-        buffer[5] = if self.state { 1 } else { 0 };
+        buffer[5] = if self.power_down { 1 } else { 0 };
         buffer[6] = 0;
         buffer[7] = Tag::Last.into();
     }
@@ -35,7 +35,7 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for BlankScreenResp {
         assert_eq!(buffer[2], Tag::BlankScreen.into());
         //assert_eq!(buffer[3], RESP_LEN);
         BlankScreenResp {
-            state: if buffer[5] == 0 { false } else { true },
+            power_down: if buffer[5] == 0 { false } else { true },
         }
     }
 }

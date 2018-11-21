@@ -9,7 +9,7 @@ use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
 };
 use bcm2837_hal::mailbox::{Channel, Mailbox};
-use bcm2837_hal::mailbox_msg::{FramebufferCmd, Resp};
+use bcm2837_hal::mailbox_msg::*;
 use display::Display;
 use sel4_sys::*;
 use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
