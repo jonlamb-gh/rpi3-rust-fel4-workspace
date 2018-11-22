@@ -110,7 +110,12 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     allocator.dma_cache_op(pmem.vaddr, mem_size_bytes as _, DMACacheOp::CleanInvalidate);
 
-    let mut display = Display::new(fb_resp, pmem.vaddr);
+    let mut display = Display::new(
+        fb_resp.phy_width,
+        fb_resp.phy_height,
+        fb_resp.pitch,
+        pmem.vaddr,
+    );
 
     display.fill_color(0xFF00FF_u32.into());
 }

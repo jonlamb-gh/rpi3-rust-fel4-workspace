@@ -1,5 +1,7 @@
 #![no_std]
 
+// TODO - use embedded-graphics types/traits on Display
+
 extern crate bcm2837_hal;
 extern crate embedded_graphics;
 extern crate rgb;
@@ -9,7 +11,6 @@ use embedded_graphics::drawable::Pixel;
 use embedded_graphics::pixelcolor::PixelColor;
 use embedded_graphics::Drawing;
 //use mailbox::msg::blank_screen::BlankScreenCmd;
-use bcm2837_hal::mailbox_msg::FramebufferResp;
 use rgb::*;
 
 // TODO - until I figure out how to cleanly use embedded-graphics IntoIterator
@@ -79,35 +80,39 @@ impl DisplayColor {
 }
 
 pub struct Display {
-    fb_data: FramebufferResp,
+    width: u32,
+    height: u32,
+    pitch: u32,
     fb_ptr: *mut u32,
 }
 
 impl Display {
-    pub fn new(fb_data: FramebufferResp, fb_vaddr: u64) -> Self {
+    pub fn new(width: u32, height: u32, pitch: u32, fb_vaddr: u64) -> Self {
         Self {
-            fb_data,
+            width,
+            height,
+            pitch,
             fb_ptr: fb_vaddr as *mut u32,
         }
     }
 
     /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
     pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
-        let offset = (y * (self.fb_data.pitch / 4)) + x;
+        let offset = (y * (self.pitch / 4)) + x;
         unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
     }
 
     pub fn width(&self) -> u32 {
-        self.fb_data.phy_width
+        self.width
     }
 
     pub fn height(&self) -> u32 {
-        self.fb_data.phy_height
+        self.height
     }
 
     pub fn fill_color(&mut self, color: DisplayColor) {
-        for y in 0..self.fb_data.phy_height {
-            for x in 0..self.fb_data.phy_width {
+        for y in 0..self.height {
+            for x in 0..self.width {
                 self.set_pixel(x, y, color.into());
             }
         }
@@ -127,7 +132,7 @@ impl Drawing<DisplayColor> for Display {
         T: Iterator<Item = Pixel<DisplayColor>>,
     {
         for Pixel(coord, color) in item_pixels {
-            if coord[0] >= self.fb_data.phy_width || coord[1] >= self.fb_data.phy_height {
+            if coord[0] >= self.width || coord[1] >= self.height {
                 continue;
             }
 
