@@ -69,6 +69,7 @@ impl BarGraph {
         let scaled = self.value * (self.height as f32);
         self.fill_dist = scaled as i32;
 
+        self.value_str.clear();
         write!(self.value_str, "{:.*}", 0, 100.0 * self.value).ok();
     }
 

@@ -19,7 +19,16 @@ use embedded_graphics::coord::Coord;
 use gui::*;
 use rgb::RGB8;
 use sel4_sys::*;
-use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
+use sel4twinkle_alloc::{Allocator, DMACacheOp, InitCap, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
+
+const DISPLAY_WIDTH: u32 = 600;
+const DISPLAY_HEIGHT: u32 = 300;
+
+const FAULT_EP_BADGE: seL4_Word = 0xDEAD;
+const IPC_EP_BADGE: seL4_Word = 0xBEEF;
+
+// 8 x 4K pages
+const THREAD_STACK_NUM_PAGES: usize = 8;
 
 #[macro_use]
 mod macros;
@@ -28,7 +37,7 @@ pub fn handle_fault(badge: seL4_Word) {
     debug_println!("\n!!! Fault from badge 0x{:X}\n", badge);
 }
 
-pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
+pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
     // VideoCore Mailbox
     let base_size = PAGE_BITS_4K as usize;
     let vc_mbox_paddr: seL4_Word = MBOX_BASE_PADDR + MBOX_BASE_OFFSET;
@@ -79,13 +88,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     debug_println!("\nCreating a Display\n");
 
     // TODO - need to go enable full GPU region in the kernel devices
-    let desired_width = 800;
-    let desired_height = 480;
     let fb_cfg = FramebufferCmd {
-        phy_width: desired_width,
-        phy_height: desired_height,
-        virt_width: desired_width,
-        virt_height: desired_height,
+        phy_width: DISPLAY_WIDTH,
+        phy_height: DISPLAY_HEIGHT,
+        virt_width: DISPLAY_WIDTH,
+        virt_height: DISPLAY_HEIGHT,
         x_offset: 0,
         y_offset: 0,
     };
@@ -102,6 +109,9 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     debug_println!("{:#?}", fb_resp);
 
+    assert_eq!(fb_resp.phy_width, DISPLAY_WIDTH);
+    assert_eq!(fb_resp.phy_height, DISPLAY_HEIGHT);
+
     // TODO - should be virt, pitch * virt_height
     let mem_size_bytes = (fb_resp.phy_height * fb_resp.pitch) as seL4_Word;
     let pages = 1 + mem_size_bytes / PAGE_SIZE_4K;
@@ -117,14 +127,33 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     allocator.dma_cache_op(pmem.vaddr, mem_size_bytes as _, DMACacheOp::CleanInvalidate);
 
-    let mut display = Display::new(
-        fb_resp.phy_width,
-        fb_resp.phy_height,
-        fb_resp.pitch,
-        pmem.vaddr,
-    );
+    let mut thread = allocator
+        .create_thread(
+            global_fault_ep_cap,
+            FAULT_EP_BADGE,
+            IPC_EP_BADGE,
+            THREAD_STACK_NUM_PAGES,
+        ).expect("Failed to create thread");
 
-    //display.fill_color(0xFF00FF_u32.into());
+    thread
+        .configure_context(
+            render_thread_function as _,
+            Some(pmem.vaddr),
+            Some(fb_resp.pitch as seL4_Word),
+            None,
+        ).expect("Failed to configure thread");
+
+    thread
+        .start(InitCap::InitThreadTCB.into())
+        .expect("Failed to start thread");
+}
+
+fn render_thread_function(fb_vaddr: seL4_Word, fb_pitch: seL4_Word) {
+    debug_println!("\nRender thread running\n");
+    assert_ne!(fb_vaddr, 0);
+    assert_ne!(fb_pitch, 0);
+
+    let mut display = Display::new(DISPLAY_WIDTH, DISPLAY_HEIGHT, fb_pitch as _, fb_vaddr as _);
 
     let bar_graph_config = BarGraphConfig {
         top_left: Coord::new(100, 50),
@@ -148,9 +177,23 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         stroke_width: 2,
     });
 
-    bar_graph.set_value(0.90);
-    bar_graph.draw_object(&mut display);
+    let mut float_val: f32 = 0.0;
+    let mut u_val: u32 = 0;
 
-    circle_digit.set_value(4);
-    circle_digit.draw_object(&mut display);
+    loop {
+        bar_graph.set_value(float_val);
+        bar_graph.draw_object(&mut display);
+
+        circle_digit.set_value(u_val);
+        circle_digit.draw_object(&mut display);
+
+        display.fill_color(0_u32.into());
+
+        float_val += 0.1;
+        if float_val > 1.0 {
+            float_val = 0.0;
+        }
+
+        u_val += 1;
+    }
 }

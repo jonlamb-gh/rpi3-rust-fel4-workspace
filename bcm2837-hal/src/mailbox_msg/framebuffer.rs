@@ -3,14 +3,18 @@ use super::Tag;
 use super::MAILBOX_BUFFER_LEN;
 use super::REQUEST;
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum PixelOrder {
+    BGR,
+    RGB,
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct FramebufferCmd {
     pub phy_width: u32,
     pub phy_height: u32,
-
     pub virt_width: u32,
     pub virt_height: u32,
-
     pub x_offset: u32,
     pub y_offset: u32,
 }
@@ -20,9 +24,8 @@ pub struct FramebufferResp {
     // TODO - what else is useful?
     pub phy_width: u32,
     pub phy_height: u32,
-
     pub pitch: u32,
-
+    pub pixel_order: PixelOrder,
     pub paddr: u32,
 }
 
@@ -57,8 +60,7 @@ impl MailboxMsgBufferConstructor for FramebufferCmd {
         buffer[21] = Tag::SetPixelOrder.into();
         buffer[22] = 4;
         buffer[23] = 4;
-        // RGB
-        buffer[24] = 1;
+        buffer[24] = PixelOrder::RGB.into();
 
         buffer[25] = Tag::AllocBuffer.into();
         buffer[26] = 8;
@@ -89,7 +91,27 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for FramebufferResp {
             phy_width: buffer[5],
             phy_height: buffer[6],
             pitch: buffer[33],
+            pixel_order: buffer[24].into(),
             paddr: bus_paddr & 0x3FFF_FFFF,
+        }
+    }
+}
+
+impl From<PixelOrder> for u32 {
+    fn from(po: PixelOrder) -> u32 {
+        match po {
+            PixelOrder::BGR => 0,
+            PixelOrder::RGB => 1,
+        }
+    }
+}
+
+impl From<u32> for PixelOrder {
+    fn from(val: u32) -> PixelOrder {
+        match val {
+            0 => PixelOrder::BGR,
+            1 => PixelOrder::RGB,
+            _ => unimplemented!(),
         }
     }
 }

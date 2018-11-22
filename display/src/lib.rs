@@ -3,6 +3,7 @@
 // TODO
 // - use embedded-graphics types/traits on Display
 // - local render buffer for double buffering, swap does a DMA transfer
+// - handle PixelOrder
 
 extern crate bcm2837_hal;
 extern crate embedded_graphics;
