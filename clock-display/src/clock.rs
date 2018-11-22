@@ -69,7 +69,7 @@ impl Clock {
         clock
     }
 
-    fn update_digits(&mut self, hour: u32, min: u32, sec: u32) {
+    pub fn update_digits(&mut self, hour: u32, min: u32, sec: u32) {
         self.update_hour_digit(hour);
         self.update_minute_digit(min);
         self.update_second_digit(sec);

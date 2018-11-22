@@ -157,7 +157,7 @@ fn render_thread_function(fb_vaddr: seL4_Word, fb_pitch: seL4_Word) {
 
     let mut display = Display::new(DISPLAY_WIDTH, DISPLAY_HEIGHT, fb_pitch as _, fb_vaddr as _);
 
-    let clock = Clock::new(ClockConfig {
+    let mut clock = Clock::new(ClockConfig {
         center: Coord::new(display.width() as i32 / 2, display.height() as i32 / 2),
         radius: (display.height() / 2) - 1,
         outline_stroke_width: 4,
@@ -166,9 +166,29 @@ fn render_thread_function(fb_vaddr: seL4_Word, fb_pitch: seL4_Word) {
 
     clock.draw_object(&mut display);
 
+    let mut hour: u32 = 0;
+    let mut min: u32 = 0;
+    let mut sec: u32 = 0;
+
     loop {
-        // TODO
-        //display.fill_color(0_u32.into());
-        //clock.draw_object(&mut display);
+        // Move the clock digits around
+        sec += 1;
+        if sec >= 60 {
+            sec = 0;
+            min += 1;
+            if min >= 60 {
+                min = 0;
+                hour += 1;
+                if hour >= 12 {
+                    hour = 0;
+                }
+            }
+        }
+
+        clock.update_digits(hour, min, sec);
+
+        display.fill_color(0_u32.into());
+
+        clock.draw_object(&mut display);
     }
 }
