@@ -5,6 +5,7 @@ mod get_fb_phy_size;
 mod get_serial_num;
 mod get_temperature;
 mod get_vc_mem;
+mod set_cursor_state;
 
 pub use self::blank_screen::{BlankScreenCmd, BlankScreenResp};
 pub use self::framebuffer::{FramebufferCmd, FramebufferResp};
@@ -13,6 +14,7 @@ pub use self::get_fb_phy_size::{GetFbPhySizeCmd, GetFbPhySizeResp};
 pub use self::get_serial_num::{GetSerialNumCmd, GetSerialNumResp};
 pub use self::get_temperature::{GetTemperatureCmd, GetTemperatureResp};
 pub use self::get_vc_mem::{GetVcMemCmd, GetVcMemResp};
+pub use self::set_cursor_state::{CursorCoord, SetCursorStateCmd, SetCursorStateResp};
 
 pub const REQUEST: u32 = 0;
 pub const MAILBOX_BUFFER_LEN: usize = 36;
@@ -25,6 +27,7 @@ pub trait MailboxMsgBufferConstructor {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Tag {
     Last,
+    SetCursorState,
     GetSerialNum,
     GetArmMem,
     GetVcMem,
@@ -46,6 +49,7 @@ impl From<Tag> for u32 {
     fn from(tag: Tag) -> u32 {
         match tag {
             Tag::Last => 0,
+            Tag::SetCursorState => 0x8011,
             Tag::GetSerialNum => 0x10004,
             Tag::GetArmMem => 0x10005,
             Tag::GetVcMem => 0x10006,
@@ -74,6 +78,7 @@ pub enum Resp {
     GetVcMemResp(GetVcMemResp),
     BlankScreenResp(BlankScreenResp),
     GetFbPhySizeResp(GetFbPhySizeResp),
+    SetCursorStateResp(SetCursorStateResp),
 }
 
 // TODO - sanity checks/result?
@@ -92,6 +97,8 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for Resp {
             Resp::BlankScreenResp(BlankScreenResp::from(buffer))
         } else if buffer[2] == Tag::GetPhySize.into() {
             Resp::GetFbPhySizeResp(GetFbPhySizeResp::from(buffer))
+        } else if buffer[2] == Tag::SetCursorState.into() {
+            Resp::SetCursorStateResp(SetCursorStateResp::from(buffer))
         } else if buffer[2] == Tag::SetPhySize.into() {
             // TODO - gating on the first tag, need to improve this
             Resp::FramebufferResp(FramebufferResp::from(buffer))
