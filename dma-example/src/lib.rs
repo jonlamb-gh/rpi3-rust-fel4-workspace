@@ -102,5 +102,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         dma_parts.ch1.is_lite(),
     );
 
+    // TODO - pmem page, slice from, slice of control blocks
+
     debug_println!("All done");
 }

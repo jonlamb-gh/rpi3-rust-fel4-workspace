@@ -33,8 +33,34 @@ pub struct ControlBlock {
 }
 
 impl ControlBlock {
-    pub fn set_2d_mode_length(x_len: u16, y_len: u16) {
-        // TODO
+    pub fn init(&mut self) {
+        self.info = 0;
+        self.src = 0;
+        self.dst = 0;
+        self.length = 0;
+        self.stride = 0;
+        self.next = 0;
+        self.__reserved_0[0] = 0;
+        self.__reserved_0[1] = 0;
+    }
+
+    // TODO - set_info(TI::Register) ?
+    //pub fn set_info(&mut self, info: TI::Register) {
+
+    pub fn set_2d_mode_length(&mut self, x_len: u16, y_len: u16) {
+        // TODO - enforce/assert y_len to 14 bits
+        self.length = x_len as u32 & 0x0000_FFFF;
+        self.length |= (y_len as u32) << 16 & 0x3FFF_0000;
+    }
+
+    pub fn set_length(&mut self, len: u32) {
+        // TODO - enforce/assert 30 bits
+        self.length = len & 0x3FFF_FFFF
+    }
+
+    pub fn set_stride(&mut self, src_stride: u16, dst_stride: u16) {
+        self.stride = src_stride as u32 & 0x0000_FFFF;
+        self.stride |= (dst_stride as u32) << 16 & 0xFFFF_0000;
     }
 }
 
