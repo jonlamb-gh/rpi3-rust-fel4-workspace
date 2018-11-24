@@ -36,18 +36,14 @@ pub trait DmaExt {
     fn split(self) -> Self::Parts;
 }
 
-// Parts instead of Channels since it also has INT_STATUS and ENABLE?
 #[derive(Debug, Copy, Clone)]
 pub struct Parts {
     pub ch0: Channel,
     pub ch1: Channel,
-    // ...
+    // ... 15
     pub int_status: IntStatusRegister,
     pub enable: EnableRegister,
 }
-
-// or like Rcc/Gpio parts
-//pub struct Dma {
 
 #[derive(Debug, Copy, Clone)]
 pub struct IntStatusRegister {
@@ -83,4 +79,47 @@ impl Deref for IntStatusRegister {
     fn deref(&self) -> &Self::Target {
         unsafe { &*(self.addr as *const IntStatusRegisterBlock) }
     }
+}
+
+impl DmaExt for DMA {
+    type Parts = Parts;
+
+    fn split(self) -> Parts {
+        let base_vaddr = self.ptr() as u64;
+
+        Parts {
+            ch0: Channel {
+                addr: (base_vaddr + CHANNEL0_OFFSET) as _,
+            },
+            ch1: Channel {
+                addr: (base_vaddr + CHANNEL1_OFFSET) as _,
+            },
+            int_status: IntStatusRegister {
+                addr: (base_vaddr + INT_STATUS_OFFSET) as _,
+            },
+            enable: EnableRegister {
+                addr: (base_vaddr + ENABLE_OFFSET) as _,
+            },
+        }
+    }
+}
+
+impl Channel {
+    pub fn is_lite(&self) -> bool {
+        self.DEBUG.is_set(DEBUG::LITE)
+    }
+
+    pub fn dma_id(&self) -> u8 {
+        self.DEBUG.read(DEBUG::DMA_ID) as _
+    }
+
+    pub fn is_busy(&self) -> bool {
+        self.CS.is_set(CS::ACTIVE)
+    }
+
+    // TODO - abort()
+
+    // TODO - wait() with nonblock type support for busy-waits
+
+    // TODO - start(control_block)
 }
