@@ -65,6 +65,46 @@ register_bitfields! {
         DMA_STATE OFFSET(16) NUMBITS(8) [],
         VERSION OFFSET(25) NUMBITS(3) [],
         LITE OFFSET(28) NUMBITS(1) []
+    ],
+
+    /// Interrupt status
+    INT_STATUS [
+        INT0 OFFSET(0) NUMBITS(1) [],
+        INT1 OFFSET(1) NUMBITS(1) [],
+        INT2 OFFSET(2) NUMBITS(1) [],
+        INT3 OFFSET(3) NUMBITS(1) [],
+        INT4 OFFSET(4) NUMBITS(1) [],
+        INT5 OFFSET(5) NUMBITS(1) [],
+        INT6 OFFSET(6) NUMBITS(1) [],
+        INT7 OFFSET(7) NUMBITS(1) [],
+        INT8 OFFSET(8) NUMBITS(1) [],
+        INT9 OFFSET(9) NUMBITS(1) [],
+        INT10 OFFSET(10) NUMBITS(1) [],
+        INT11 OFFSET(11) NUMBITS(1) [],
+        INT12 OFFSET(12) NUMBITS(1) [],
+        INT13 OFFSET(13) NUMBITS(1) [],
+        INT14 OFFSET(14) NUMBITS(1) [],
+        INT15 OFFSET(15) NUMBITS(1) []
+    ],
+
+    /// Global enable bits
+    ENABLE [
+        EN0 OFFSET(0) NUMBITS(1) [],
+        EN1 OFFSET(1) NUMBITS(1) [],
+        EN2 OFFSET(2) NUMBITS(1) [],
+        EN3 OFFSET(3) NUMBITS(1) [],
+        EN4 OFFSET(4) NUMBITS(1) [],
+        EN5 OFFSET(5) NUMBITS(1) [],
+        EN6 OFFSET(6) NUMBITS(1) [],
+        EN7 OFFSET(7) NUMBITS(1) [],
+        EN8 OFFSET(8) NUMBITS(1) [],
+        EN9 OFFSET(9) NUMBITS(1) [],
+        EN10 OFFSET(10) NUMBITS(1) [],
+        EN11 OFFSET(11) NUMBITS(1) [],
+        EN12 OFFSET(12) NUMBITS(1) [],
+        EN13 OFFSET(13) NUMBITS(1) [],
+        EN14 OFFSET(14) NUMBITS(1) [],
+        EN15 OFFSET(15) NUMBITS(1) []
     ]
 }
 
@@ -81,11 +121,29 @@ pub const CHANNEL6_OFFSET: u64 = 0x600;
 pub const CHANNEL7_OFFSET: u64 = 0x700;
 pub const CHANNEL8_OFFSET: u64 = 0x800;
 pub const CHANNEL9_OFFSET: u64 = 0x900;
-pub const CHANNEL10_OFFSET: u64 = 0xa00;
-pub const CHANNEL11_OFFSET: u64 = 0xb00;
-pub const CHANNEL12_OFFSET: u64 = 0xc00;
-pub const CHANNEL13_OFFSET: u64 = 0xd00;
-pub const CHANNEL14_OFFSET: u64 = 0xe00;
+pub const CHANNEL10_OFFSET: u64 = 0xA00;
+pub const CHANNEL11_OFFSET: u64 = 0xB00;
+pub const CHANNEL12_OFFSET: u64 = 0xC00;
+pub const CHANNEL13_OFFSET: u64 = 0xD00;
+pub const CHANNEL14_OFFSET: u64 = 0xE00;
+
+/// Offset of the global interrupt status register
+pub const INT_STATUS_OFFSET: u64 = 0xFE0;
+
+/// Offset of the global enable control register
+pub const ENABLE_OFFSET: u64 = 0xFF0;
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IntStatusRegisterBlock {
+    pub INT_STATUS: ReadWrite<u32, INT_STATUS::Register>,
+}
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct EnableRegisterBlock {
+    pub ENABLE: ReadWrite<u32, ENABLE::Register>,
+}
 
 #[allow(non_snake_case)]
 #[repr(C)]
