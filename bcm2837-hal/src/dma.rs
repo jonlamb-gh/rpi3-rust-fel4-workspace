@@ -6,10 +6,11 @@
 // - use the above to make a safe api rather than just control block addr's
 
 use bcm2837::dma::*;
-//use cortex_a::asm;
+use cortex_a::{asm, barrier};
 //use hal::prelude::*;
 //use void::Void;
 use core::ops::Deref;
+use core::sync::atomic::{compiler_fence, Ordering};
 
 /// 8 words (256 bits) in length and must start at a 256-bit aligned address
 #[repr(C)]
@@ -29,6 +30,12 @@ pub struct ControlBlock {
     pub next: u32,
     #[doc(hidden)]
     __reserved_0: [u32; 2],
+}
+
+impl ControlBlock {
+    pub fn set_2d_mode_length(x_len: u16, y_len: u16) {
+        // TODO
+    }
 }
 
 pub trait DmaExt {
@@ -115,12 +122,34 @@ impl Channel {
     }
 
     pub fn is_busy(&self) -> bool {
+        // TODO - dsb(sy)?
+        //unsafe { barrier::dsb(barrier::SY) };
+
         self.CS.is_set(CS::ACTIVE)
     }
 
-    // TODO - abort()
+    pub fn wait(&self) {
+        // TODO - dsb(sy)?
+        //unsafe { barrier::dsb(barrier::SY) };
 
-    // TODO - wait() with nonblock type support for busy-waits
+        while self.CS.is_set(CS::ACTIVE) {
+            asm::nop();
+        }
 
-    // TODO - start(control_block)
+        // TODO
+        compiler_fence(Ordering::SeqCst);
+    }
+
+    pub fn abort(&self) {
+        // TODO
+        unimplemented!();
+    }
+
+    pub fn start(&mut self, cb_paddr: u32) {
+        // TODO - dsb(sy)?
+        unsafe { barrier::dsb(barrier::SY) };
+
+        self.CONBLK_AD.set(cb_paddr);
+        self.CS.write(CS::ACTIVE::SET);
+    }
 }

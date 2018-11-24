@@ -4,14 +4,13 @@ extern crate bcm2837_hal;
 extern crate sel4_sys;
 extern crate sel4twinkle_alloc;
 
-use bcm2837_hal::bcm2837::gpio::{GPIO, PADDR as GPIO_PADDR};
+use bcm2837_hal::bcm2837::dma::{DMA, PADDR as DMA_PADDR};
 use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
 };
-use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
+use bcm2837_hal::dma::*;
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
-use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;
 use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
@@ -74,6 +73,33 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         MBOX::from(vc_mbox_vaddr),
         mbox_buffer_pmem.paddr as _,
         mbox_buffer_pmem.vaddr as _,
+    );
+
+    // DMA
+    let dma_vaddr = allocator
+        .io_map(DMA_PADDR, PAGE_BITS_4K as _)
+        .expect("Failed to io_map");
+
+    debug_println!("Mapped DMA device region");
+    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}", dma_vaddr, DMA_PADDR);
+
+    let dma = DMA::from(dma_vaddr);
+
+    // Split into the various channels/etc
+    let dma_parts = dma.split();
+
+    debug_println!("DMA Parts = \n{:#?}", dma_parts);
+
+    debug_println!(
+        "DMA channel 0 - ID: {} - is_lite: {}",
+        dma_parts.ch0.dma_id(),
+        dma_parts.ch0.is_lite(),
+    );
+
+    debug_println!(
+        "DMA channel 1 - ID: {} - is_lite: {}",
+        dma_parts.ch1.dma_id(),
+        dma_parts.ch1.is_lite(),
     );
 
     debug_println!("All done");
