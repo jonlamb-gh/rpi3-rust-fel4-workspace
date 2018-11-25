@@ -6,15 +6,123 @@
 // - use the above to make a safe api rather than just control block addr's
 
 use bcm2837::dma::*;
-use cortex_a::{asm, barrier};
-//use hal::prelude::*;
-//use void::Void;
 use core::ops::Deref;
 use core::sync::atomic::{compiler_fence, Ordering};
+use cortex_a::{asm, barrier};
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum TransferLength {
+    ModeLinear(u32),
+    Mode2D(u16, u16),
+}
+
+// TODO - use a bitfield?
+#[derive(Debug, Copy, Clone)]
+pub struct ControlBlockConfig {
+    pub int_enable: bool,
+    pub transfer_length: TransferLength,
+    pub wait_for_resp: bool,
+    pub dest_inc: bool,
+    pub dest_width_128: bool,
+    pub dest_dreq: bool,
+    pub dest_ignore: bool,
+    pub src_inc: bool,
+    pub src_width_128: bool,
+    pub src_dreq: bool,
+    pub src_ignore: bool,
+    pub burst_length: u8,
+    pub peripheral_map: u8,
+    pub waits: u8,
+    pub no_wide_bursts: bool,
+}
+
+impl Default for ControlBlockConfig {
+    fn default() -> ControlBlockConfig {
+        ControlBlockConfig {
+            int_enable: false,
+            transfer_length: TransferLength::ModeLinear(0),
+            wait_for_resp: false,
+            dest_inc: false,
+            dest_width_128: false,
+            dest_dreq: false,
+            dest_ignore: false,
+            src_inc: false,
+            src_width_128: false,
+            src_dreq: false,
+            src_ignore: false,
+            burst_length: 0,
+            peripheral_map: 0,
+            waits: 0,
+            no_wide_bursts: false,
+        }
+    }
+}
+
+// TODO - this will be removed, only handling a few params
+impl From<&ControlBlockConfig> for u32 {
+    fn from(config: &ControlBlockConfig) -> u32 {
+        let mut val: u32 = 0;
+
+        if config.int_enable {
+            val |= 1 << 0;
+        }
+
+        if let TransferLength::Mode2D(_, _) = config.transfer_length {
+            val |= 1 << 1;
+        }
+
+        if config.wait_for_resp {
+            val |= 1 << 3;
+        }
+        if config.dest_inc {
+            val |= 1 << 4;
+        }
+        if config.dest_width_128 {
+            val |= 1 << 5;
+        }
+        if config.dest_dreq {
+            val |= 1 << 6;
+        }
+        if config.dest_ignore {
+            val |= 1 << 7;
+        }
+        if config.src_inc {
+            val |= 1 << 8;
+        }
+        if config.src_width_128 {
+            val |= 1 << 9;
+        }
+        if config.src_dreq {
+            val |= 1 << 10;
+        }
+        if config.src_ignore {
+            val |= 1 << 11;
+        }
+
+        if config.burst_length != 0 {
+            val |= (config.burst_length as u32) & 0x0F << 12;
+        }
+
+        if config.peripheral_map != 0 {
+            val |= (config.peripheral_map as u32) & 0x1F << 16;
+        }
+
+        if config.waits != 0 {
+            val |= (config.waits as u32) & 0x1F << 21;
+        }
+
+        if config.no_wide_bursts {
+            val |= 1 << 26;
+        }
+
+        val
+    }
+}
 
 pub const CONTROL_BLOCK_SIZE: u32 = 8 * 4;
 
 /// 8 words (256 bits) in length and must start at a 256-bit aligned address
+#[derive(Debug)]
 #[repr(C)]
 #[repr(align(32))]
 pub struct ControlBlock {
@@ -46,8 +154,34 @@ impl ControlBlock {
         self.__reserved_0[1] = 0;
     }
 
-    // TODO - set_info(TI::Register) ?
-    //pub fn set_info(&mut self, info: TI::Register) {
+    pub fn config(
+        &mut self,
+        config: &ControlBlockConfig,
+        src: u32,
+        dst: u32,
+        src_stride: u16,
+        dst_stride: u16,
+        next: u32,
+    ) {
+        self.info = config.into();
+        self.src = src;
+        self.dst = dst;
+
+        match config.transfer_length {
+            TransferLength::ModeLinear(l) => {
+                self.set_length(l);
+                self.stride = 0;
+            }
+            TransferLength::Mode2D(x, y) => {
+                self.set_2d_mode_length(x, y);
+                self.set_stride(src_stride, dst_stride);
+            }
+        }
+
+        self.next = next;
+        self.__reserved_0[0] = 0;
+        self.__reserved_0[1] = 0;
+    }
 
     pub fn set_2d_mode_length(&mut self, x_len: u16, y_len: u16) {
         // TODO - enforce/assert y_len to 14 bits

@@ -191,8 +191,42 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     }
 
     // Construct a control block to zero the framebuffer (blank the screen)
+    let mut cb_config = ControlBlockConfig::default();
+
     // SRC_IGNORE = 1, fill dst will all zeros (fast cache fill op)
-    // TODO
+    cb_config.src_ignore = true;
+    cb_config.transfer_length =
+        TransferLength::Mode2D(fb_resp.phy_width as _, fb_resp.phy_height as _);
+
+    // Apply control block configuration to block 0
+    control_blocks[0].config(
+        &cb_config,
+        // source addr is 0 since we're using SRC_IGNORE
+        0,
+        // destination addr is the GPU framebuffer
+        gpu_pmem.paddr as _,
+        // TODO - is stride = (width - pitch)? or = pitch?
+        0,
+        fb_resp.pitch as _,
+        0,
+    );
+
+    // Pick DMA channel 0
+    let mut dma_channel = dma_parts.ch0;
+    assert_eq!(
+        dma_channel.is_lite(),
+        false,
+        "Can't use a lite DMA engine for 2D transfers"
+    );
+
+    debug_println!("Starting DMA transfer");
+
+    while dma_channel.is_busy() == true {}
+
+    // Start DMA transfer, give it the paddr of our control block
+    dma_channel.start(dma_cb_pmem.paddr as _);
+
+    dma_channel.wait();
 
     debug_println!("All done");
 }
