@@ -12,9 +12,11 @@ use cortex_a::{asm, barrier};
 use core::ops::Deref;
 use core::sync::atomic::{compiler_fence, Ordering};
 
+pub const CONTROL_BLOCK_SIZE: u32 = 8 * 4;
+
 /// 8 words (256 bits) in length and must start at a 256-bit aligned address
 #[repr(C)]
-#[repr(align(8))]
+#[repr(align(32))]
 pub struct ControlBlock {
     /// Transfer information, same as TI::Register
     pub info: u32,
