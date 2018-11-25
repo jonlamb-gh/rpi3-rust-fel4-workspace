@@ -26,6 +26,7 @@ pub struct FramebufferResp {
     pub phy_height: u32,
     pub pitch: u32,
     pub pixel_order: PixelOrder,
+    pub bus_paddr: u32,
     pub paddr: u32,
 }
 
@@ -85,13 +86,15 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for FramebufferResp {
         // buffer
         assert_ne!(buffer[28], 0);
 
-        let bus_paddr = buffer[28];
+        // TODO - check this
+        let bus_paddr = buffer[28] | 0x4000_0000;
 
         FramebufferResp {
             phy_width: buffer[5],
             phy_height: buffer[6],
             pitch: buffer[33],
             pixel_order: buffer[24].into(),
+            bus_paddr,
             paddr: bus_paddr & 0x3FFF_FFFF,
         }
     }

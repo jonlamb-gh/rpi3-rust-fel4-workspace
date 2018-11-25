@@ -4,6 +4,7 @@ extern crate bcm2837_hal;
 extern crate sel4_sys;
 extern crate sel4twinkle_alloc;
 
+use bcm2837_hal::bcm2837::dma::ENABLE;
 use bcm2837_hal::bcm2837::dma::{DMA, PADDR as DMA_PADDR};
 use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
@@ -105,7 +106,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     // TODO - pmem page, slice from, slice of control blocks
     let num_cb = PAGE_SIZE_4K as usize / CONTROL_BLOCK_SIZE as usize;
     let dma_cb_pmem = allocator
-        .pmem_new_page(None)
+        .pmem_new_dma_page(None)
         .expect("Failed to allocate pmem");
 
     debug_println!(
@@ -195,19 +196,43 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     // SRC_IGNORE = 1, fill dst will all zeros (fast cache fill op)
     cb_config.src_ignore = true;
-    cb_config.transfer_length =
-        TransferLength::Mode2D(fb_resp.phy_width as _, fb_resp.phy_height as _);
+    cb_config.dest_inc = true;
+    cb_config.dest_width_128 = true;
+    cb_config.src_width_128 = true;
+    cb_config.src_inc = true;
+    // only for ch0?
+    cb_config.burst_length = 8;
+
+    // Stride, in bytes, is a signed inc/dec applied after end of each row
+    let bbp: u32 = 4;
+    let stride = fb_resp.pitch - (fb_resp.phy_width * bbp);
+
+    // This is not really obvious from the DMA documentation,
+    // but the top 16 bits must be programmmed to "height -1"
+    // and not "height" in 2D mode.
+    cb_config.transfer_length = TransferLength::Mode2D(
+        // transfer length in bytes of a row
+        (bbp * fb_resp.phy_width) as _,
+        // How many x-length transfers are performed
+        (fb_resp.phy_height - 1) as _,
+    );
+
+    // Destination physical address of the GPU framebuffer
+    // Must be in VC bus address space?
+    // gpu_pmem.paddr
+    // TODO - needs the top?
+    //let dst_paddr = fb_resp.paddr;
+    let dst_paddr = fb_resp.bus_paddr;
+    //    + (fb_resp.pitch * fb_resp.phy_height);
 
     // Apply control block configuration to block 0
     control_blocks[0].config(
         &cb_config,
         // source addr is 0 since we're using SRC_IGNORE
         0,
-        // destination addr is the GPU framebuffer
-        gpu_pmem.paddr as _,
-        // TODO - is stride = (width - pitch)? or = pitch?
-        0,
-        fb_resp.pitch as _,
+        dst_paddr,
+        stride as _,
+        stride as _,
         0,
     );
 
@@ -219,6 +244,10 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         "Can't use a lite DMA engine for 2D transfers"
     );
 
+    debug_println!("Enabling DMA channel 0");
+
+    dma_parts.enable.ENABLE.write(ENABLE::EN0::SET);
+
     debug_println!("Starting DMA transfer");
 
     while dma_channel.is_busy() == true {}
@@ -227,6 +256,10 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     dma_channel.start(dma_cb_pmem.paddr as _);
 
     dma_channel.wait();
+
+    debug_println!("{:#?}", control_blocks[0]);
+
+    assert_eq!(dma_channel.errors(), false, "DMA errors present");
 
     debug_println!("All done");
 }

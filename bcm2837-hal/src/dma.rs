@@ -5,6 +5,12 @@
 // - following https://github.com/rust-embedded/embedded-hal/issues/37#issuecomment-377823801
 // - use the above to make a safe api rather than just control block addr's
 
+// height - 1
+// https://github.com/raspberrypi/linux/blob/rpi-4.19.y/drivers/video/fbdev/bcm2708_fb.c#L604
+//
+// DMA guide
+// https://github.com/seemoo-lab/bcm-rpi3/blob/master/kernel/Documentation/DMA-API-HOWTO.txt
+
 use bcm2837::dma::*;
 use core::ops::Deref;
 use core::sync::atomic::{compiler_fence, Ordering};
@@ -313,5 +319,25 @@ impl Channel {
 
         self.CONBLK_AD.set(cb_paddr);
         self.CS.write(CS::ACTIVE::SET);
+    }
+
+    pub fn errors(&self) -> bool {
+        if self.CS.is_set(CS::ERROR) {
+            return true;
+        }
+
+        if self.DEBUG.is_set(DEBUG::READ_LAST_NOT_SET_ERROR) {
+            return true;
+        }
+
+        if self.DEBUG.is_set(DEBUG::FIFO_ERROR) {
+            return true;
+        }
+
+        if self.DEBUG.is_set(DEBUG::READ_ERROR) {
+            return true;
+        }
+
+        false
     }
 }
