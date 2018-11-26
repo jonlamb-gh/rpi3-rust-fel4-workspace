@@ -289,6 +289,12 @@ impl Channel {
         self.DEBUG.read(DEBUG::DMA_ID) as _
     }
 
+    pub fn reset(&self) {
+        // TODO - abort first?
+        self.CS.write(CS::RESET::SET);
+        while self.CS.is_set(CS::RESET) == true {}
+    }
+
     pub fn is_busy(&self) -> bool {
         // TODO - dsb(sy)?
         //unsafe { barrier::dsb(barrier::SY) };
@@ -301,6 +307,15 @@ impl Channel {
         //unsafe { barrier::dsb(barrier::SY) };
 
         while self.CS.is_set(CS::ACTIVE) {
+            /*
+            let cb_addr = self.CONBLK_AD.get();
+            let ti = self.TI.get();
+            let cs = self.CS.get();
+            let debug = self.DEBUG.get();
+
+            panic!("0x{:X}  0x{:X}   0x{:X}   0x{:X}", cb_addr, ti, cs, debug);
+            */
+
             asm::nop();
         }
 
@@ -314,6 +329,8 @@ impl Channel {
     }
 
     pub fn start(&mut self, cb_paddr: u32) {
+        assert_eq!(cb_paddr & 0x1F, 0, "Control block address must be 256 bit aligned");
+
         // TODO - dsb(sy)?
         unsafe { barrier::dsb(barrier::SY) };
 

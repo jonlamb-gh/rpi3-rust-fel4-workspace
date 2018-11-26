@@ -199,9 +199,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     cb_config.dest_inc = true;
     cb_config.dest_width_128 = true;
     cb_config.src_width_128 = true;
-    cb_config.src_inc = true;
+    cb_config.src_inc = false;
     // only for ch0?
     cb_config.burst_length = 8;
+    // TODO - testing, OUTSTANDING writes is non-zero
+    cb_config.wait_for_resp = true;
 
     // Stride, in bytes, is a signed inc/dec applied after end of each row
     let bbp: u32 = 4;
@@ -247,6 +249,8 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     debug_println!("Enabling DMA channel 0");
 
     dma_parts.enable.ENABLE.write(ENABLE::EN0::SET);
+
+    dma_channel.reset();
 
     debug_println!("Starting DMA transfer");
 
