@@ -281,8 +281,6 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
         circle_digit.set_value(u_val);
         circle_digit.draw_object(&mut display);
 
-        display.fill_color(0_u32.into());
-
         float_val += 0.1;
         if float_val > 1.0 {
             float_val = 0.0;
