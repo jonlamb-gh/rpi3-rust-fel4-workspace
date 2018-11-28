@@ -8,9 +8,13 @@ extern crate rgb;
 extern crate sel4_sys;
 extern crate sel4twinkle_alloc;
 
+use bcm2837_hal::bcm2837::dma::ENABLE;
+use bcm2837_hal::bcm2837::dma::{DMA, PADDR as DMA_PADDR};
 use bcm2837_hal::bcm2837::mbox::{
     BASE_OFFSET as MBOX_BASE_OFFSET, BASE_PADDR as MBOX_BASE_PADDR, MBOX,
 };
+use bcm2837_hal::dma;
+use bcm2837_hal::dma::DmaExt;
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
 use display::Display;
@@ -72,7 +76,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
         DMACacheOp::CleanInvalidate,
     );
 
-    debug_println!("Allocated pmem page");
+    debug_println!("Allocated mbox buffer pmem page");
     debug_println!(
         "  vaddr = 0x{:X} paddr = 0x{:X}",
         mbox_buffer_pmem.vaddr,
@@ -85,7 +89,36 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
         mbox_buffer_pmem.vaddr as _,
     );
 
-    debug_println!("\nCreating a Display\n");
+    let dma_vaddr = allocator
+        .io_map(DMA_PADDR, PAGE_BITS_4K as _)
+        .expect("Failed to io_map");
+
+    debug_println!("Mapped DMA device region");
+    debug_println!("  vaddr = 0x{:X} paddr = 0x{:X}", dma_vaddr, DMA_PADDR);
+
+    // Allocate a page of memory to hold the DMA control blocks
+    let num_cb = PAGE_SIZE_4K as usize / dma::CONTROL_BLOCK_SIZE as usize;
+    let dma_cb_pmem = allocator
+        .pmem_new_dma_page(None)
+        .expect("Failed to allocate pmem");
+
+    debug_println!(
+        "Allocated DMA control block(s) pmem page, holds {} control blocks",
+        num_cb,
+    );
+    debug_println!(
+        "  vaddr = 0x{:X} paddr = 0x{:X}",
+        dma_cb_pmem.vaddr,
+        dma_cb_pmem.paddr,
+    );
+
+    allocator.dma_cache_op(
+        dma_cb_pmem.vaddr,
+        PAGE_SIZE_4K as _,
+        DMACacheOp::CleanInvalidate,
+    );
+
+    debug_println!("\nRequesting framebuffer\n");
 
     // TODO - need to go enable full GPU region in the kernel devices
     let fb_cfg = FramebufferCmd {
@@ -117,7 +150,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
     let pages = 1 + mem_size_bytes / PAGE_SIZE_4K;
 
     // Map in the GPU memory
-    let pmem = allocator
+    let gpu_pmem = allocator
         .pmem_new_pages_at_paddr(
             fb_resp.paddr as _,
             pages as _,
@@ -125,7 +158,29 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             0,
         ).expect("pmem_new_pages_at_paddr");
 
-    allocator.dma_cache_op(pmem.vaddr, mem_size_bytes as _, DMACacheOp::CleanInvalidate);
+    allocator.dma_cache_op(
+        gpu_pmem.vaddr,
+        mem_size_bytes as _,
+        DMACacheOp::CleanInvalidate,
+    );
+
+    // Create an IPC buffer / page of memory to store the thread data parameters
+    let thread_data_vaddr = allocator
+        .vspace_new_ipc_buffer(None)
+        .expect("Failed to allocate thread data memory");
+
+    let thread_data = unsafe { &mut *(thread_data_vaddr as *mut ThreadData) };
+    thread_data.dma_vaddr = dma_vaddr;
+    thread_data.scratchpad_vaddr = dma_cb_pmem.vaddr;
+    thread_data.scratchpad_paddr = dma_cb_pmem.paddr;
+    thread_data.fb_width = fb_resp.phy_width;
+    thread_data.fb_height = fb_resp.phy_height;
+    thread_data.fb_pitch = fb_resp.pitch;
+    thread_data.fb_pixel_order = fb_resp.pixel_order;
+    thread_data.fb_vaddr = gpu_pmem.vaddr;
+    thread_data.fb_paddr = fb_resp.bus_paddr.into();
+    // TODO
+    //thread_data.fb_paddr = fb_resp.paddr.into();
 
     let mut thread = allocator
         .create_thread(
@@ -138,8 +193,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
     thread
         .configure_context(
             render_thread_function as _,
-            Some(pmem.vaddr),
-            Some(fb_resp.pitch as seL4_Word),
+            Some(thread_data_vaddr),
+            None,
             None,
         ).expect("Failed to configure thread");
 
@@ -148,12 +203,49 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
         .expect("Failed to start thread");
 }
 
-fn render_thread_function(fb_vaddr: seL4_Word, fb_pitch: seL4_Word) {
-    debug_println!("\nRender thread running\n");
-    assert_ne!(fb_vaddr, 0);
-    assert_ne!(fb_pitch, 0);
+#[repr(C)]
+#[derive(Debug)]
+struct ThreadData {
+    dma_vaddr: seL4_Word,
+    scratchpad_vaddr: seL4_Word,
+    scratchpad_paddr: seL4_Word,
+    fb_width: u32,
+    fb_height: u32,
+    fb_pitch: u32,
+    fb_pixel_order: PixelOrder,
+    fb_vaddr: seL4_Word,
+    fb_paddr: seL4_Word,
+}
 
-    let mut display = Display::new(DISPLAY_WIDTH, DISPLAY_HEIGHT, fb_pitch as _, fb_vaddr as _);
+fn render_thread_function(thread_data_vaddr: seL4_Word) {
+    debug_println!("\nRender thread running\n");
+    assert_ne!(thread_data_vaddr, 0);
+
+    // TODO - sanity check fields
+    let thread_data = unsafe { &*(thread_data_vaddr as *const ThreadData) };
+
+    debug_println!("{:#?}", thread_data);
+
+    let dma = DMA::from(thread_data.dma_vaddr);
+
+    // Split into the various channels/etc
+    let dma_parts = dma.split();
+
+    dma_parts.enable.ENABLE.write(ENABLE::EN0::SET);
+
+    dma_parts.ch0.reset();
+
+    let mut display = Display::new(
+        dma_parts.ch0,
+        thread_data.scratchpad_vaddr,
+        thread_data.scratchpad_paddr as _,
+        thread_data.fb_width,
+        thread_data.fb_height,
+        thread_data.fb_pitch,
+        thread_data.fb_pixel_order,
+        thread_data.fb_vaddr,
+        thread_data.fb_paddr as _,
+    );
 
     let bar_graph_config = BarGraphConfig {
         top_left: Coord::new(100, 50),
@@ -181,6 +273,8 @@ fn render_thread_function(fb_vaddr: seL4_Word, fb_pitch: seL4_Word) {
     let mut u_val: u32 = 0;
 
     loop {
+        display.clear_screen();
+
         bar_graph.set_value(float_val);
         bar_graph.draw_object(&mut display);
 

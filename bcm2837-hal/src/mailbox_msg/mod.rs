@@ -8,7 +8,7 @@ mod get_vc_mem;
 mod set_cursor_state;
 
 pub use self::blank_screen::{BlankScreenCmd, BlankScreenResp};
-pub use self::framebuffer::{FramebufferCmd, FramebufferResp};
+pub use self::framebuffer::{FramebufferCmd, FramebufferResp, PixelOrder};
 pub use self::get_arm_mem::{GetArmMemCmd, GetArmMemResp};
 pub use self::get_fb_phy_size::{GetFbPhySizeCmd, GetFbPhySizeResp};
 pub use self::get_serial_num::{GetSerialNumCmd, GetSerialNumResp};

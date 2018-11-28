@@ -135,7 +135,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     let scratchpad_ptr = scratchpad_vaddr as *mut u32;
 
     // We fill the screen with this color/word as the src in the DMA transfer
-    unsafe { ptr::write_volatile(scratchpad_ptr, 0xFF_00_00_00) };
+    unsafe { ptr::write_volatile(scratchpad_ptr, 0xFF_00_00_FF) };
 
     let control_blocks =
         unsafe { core::slice::from_raw_parts_mut(dma_cb_pmem.vaddr as *mut ControlBlock, num_cb) };
