@@ -16,6 +16,8 @@ use core::ops::Deref;
 use core::sync::atomic::{compiler_fence, Ordering};
 use cortex_a::{asm, barrier};
 
+use cache::bus_address_bits;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TransferLength {
     ModeLinear(u32),
@@ -160,6 +162,9 @@ impl ControlBlock {
         self.__reserved_0[1] = 0;
     }
 
+    /// src/dst - physical adddresses
+    /// NOTE: the physical addresses will be translated to a bus address for
+    /// the DMA engine
     pub fn config(
         &mut self,
         config: &ControlBlockConfig,
@@ -170,8 +175,8 @@ impl ControlBlock {
         next: u32,
     ) {
         self.info = config.into();
-        self.src = src;
-        self.dst = dst;
+        self.src = src | bus_address_bits::ALIAS_4_L2_COHERENT;
+        self.dst = dst | bus_address_bits::ALIAS_4_L2_COHERENT;
 
         match config.transfer_length {
             TransferLength::ModeLinear(l) => {
@@ -304,18 +309,9 @@ impl Channel {
 
     pub fn wait(&self) {
         // TODO - dsb(sy)?
-        //unsafe { barrier::dsb(barrier::SY) };
+        unsafe { barrier::dsb(barrier::SY) };
 
         while self.CS.is_set(CS::ACTIVE) {
-            /*
-            let cb_addr = self.CONBLK_AD.get();
-            let ti = self.TI.get();
-            let cs = self.CS.get();
-            let debug = self.DEBUG.get();
-
-            panic!("0x{:X}  0x{:X}   0x{:X}   0x{:X}", cb_addr, ti, cs, debug);
-            */
-
             asm::nop();
         }
 
@@ -328,13 +324,21 @@ impl Channel {
         unimplemented!();
     }
 
+    /// cb_paddr - the physical address of the control block to load
+    /// NOTE: the physical address will be translated to a bus address for
+    /// the DMA engine
     pub fn start(&mut self, cb_paddr: u32) {
-        assert_eq!(cb_paddr & 0x1F, 0, "Control block address must be 256 bit aligned");
+        assert_eq!(
+            cb_paddr & 0x1F,
+            0,
+            "Control block address must be 256 bit aligned"
+        );
 
         // TODO - dsb(sy)?
         unsafe { barrier::dsb(barrier::SY) };
 
-        self.CONBLK_AD.set(cb_paddr);
+        self.CONBLK_AD
+            .set(cb_paddr | bus_address_bits::ALIAS_4_L2_COHERENT);
         self.CS.write(CS::ACTIVE::SET);
     }
 
@@ -352,6 +356,10 @@ impl Channel {
         }
 
         if self.DEBUG.is_set(DEBUG::READ_ERROR) {
+            return true;
+        }
+
+        if self.DEBUG.read(DEBUG::OUTSTANDING_WRITES) != 0 {
             return true;
         }
 

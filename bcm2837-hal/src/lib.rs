@@ -9,6 +9,7 @@ extern crate void;
 
 pub extern crate bcm2837;
 
+pub mod cache;
 pub mod dma;
 pub mod mailbox;
 pub mod mailbox_msg;

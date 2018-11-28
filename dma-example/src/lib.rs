@@ -104,7 +104,10 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     );
 
     // TODO - pmem page, slice from, slice of control blocks
-    let num_cb = PAGE_SIZE_4K as usize / CONTROL_BLOCK_SIZE as usize;
+
+    // Allocate a page of memory to hold the DMA control blocks
+    // Reserves the last CONTROL_BLOCK_SIZE bytes for some scratchpad bytes
+    let num_cb = (PAGE_SIZE_4K as usize / CONTROL_BLOCK_SIZE as usize) - 1;
     let dma_cb_pmem = allocator
         .pmem_new_dma_page(None)
         .expect("Failed to allocate pmem");
@@ -124,6 +127,15 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         PAGE_SIZE_4K as _,
         DMACacheOp::CleanInvalidate,
     );
+
+    // Scratchpad bytes at the end of the page
+    let scratchpad_offset = num_cb as u32 * CONTROL_BLOCK_SIZE;
+    let scratchpad_vaddr = dma_cb_pmem.vaddr as u32 + scratchpad_offset;
+    let scratchpad_paddr = dma_cb_pmem.paddr as u32 + scratchpad_offset;
+    let scratchpad_ptr = scratchpad_vaddr as *mut u32;
+
+    // We fill the screen with this color/word as the src in the DMA transfer
+    unsafe { ptr::write_volatile(scratchpad_ptr, 0xFF_00_00_00) };
 
     let control_blocks =
         unsafe { core::slice::from_raw_parts_mut(dma_cb_pmem.vaddr as *mut ControlBlock, num_cb) };
@@ -191,11 +203,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
         }
     }
 
-    // Construct a control block to zero the framebuffer (blank the screen)
+    // Construct a control block to black out the screen by filling the
+    // framebuffer memory with a word from our scratchpad area
     let mut cb_config = ControlBlockConfig::default();
 
-    // SRC_IGNORE = 1, fill dst will all zeros (fast cache fill op)
-    cb_config.src_ignore = true;
+    cb_config.src_ignore = false;
     cb_config.dest_inc = true;
     cb_config.dest_width_128 = true;
     cb_config.src_width_128 = true;
@@ -220,18 +232,15 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     );
 
     // Destination physical address of the GPU framebuffer
-    // Must be in VC bus address space?
-    // gpu_pmem.paddr
-    // TODO - needs the top?
-    //let dst_paddr = fb_resp.paddr;
     let dst_paddr = fb_resp.bus_paddr;
-    //    + (fb_resp.pitch * fb_resp.phy_height);
+
+    // Source is just a single word in our scratchpad area
+    let src_paddr = scratchpad_paddr;
 
     // Apply control block configuration to block 0
     control_blocks[0].config(
         &cb_config,
-        // source addr is 0 since we're using SRC_IGNORE
-        0,
+        src_paddr,
         dst_paddr,
         stride as _,
         stride as _,

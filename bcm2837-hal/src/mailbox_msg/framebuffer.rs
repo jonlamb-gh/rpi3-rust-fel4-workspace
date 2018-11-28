@@ -1,3 +1,4 @@
+use super::super::cache::{bus_address_bits, cpu_address_bits};
 use super::MailboxMsgBufferConstructor;
 use super::Tag;
 use super::MAILBOX_BUFFER_LEN;
@@ -86,8 +87,8 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for FramebufferResp {
         // buffer
         assert_ne!(buffer[28], 0);
 
-        // TODO - check this
-        let bus_paddr = buffer[28] | 0x4000_0000;
+        // Make sure bus address bits are correct, for QEMU mostly
+        let bus_paddr = buffer[28] | bus_address_bits::ALIAS_4_L2_COHERENT;
 
         FramebufferResp {
             phy_width: buffer[5],
@@ -95,7 +96,7 @@ impl From<&[u32; MAILBOX_BUFFER_LEN]> for FramebufferResp {
             pitch: buffer[33],
             pixel_order: buffer[24].into(),
             bus_paddr,
-            paddr: bus_paddr & 0x3FFF_FFFF,
+            paddr: bus_paddr & cpu_address_bits::MASK,
         }
     }
 }
