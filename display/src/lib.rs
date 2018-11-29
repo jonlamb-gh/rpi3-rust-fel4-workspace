@@ -1,9 +1,11 @@
 #![no_std]
 
 // TODO
-// - use embedded-graphics types/traits on Display
-// - local render buffer for double buffering, swap does a DMA transfer
+// - use embedded-graphics types/traits on Display (top-left()/etc)
+// - configs for single/double buffer modes
 // - handle PixelOrder
+// - better management/book-keeping of physical/virtual addresses
+// - FIX DMA logic breaks when src == sp, dst == backbuffer?
 
 extern crate bcm2837_hal;
 extern crate embedded_graphics;
@@ -111,6 +113,16 @@ pub struct Display {
     fb_backbuffer_ptr: *mut u32,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum TransferOp {
+    /// Fill the backbuffer with a value
+    FillBack,
+    /// Fill the frontbuffer with a value
+    FillFront,
+    /// Copy the back buffer to the frontbuffer (typically GPU memory)
+    CopyBackToFront,
+}
+
 impl Display {
     /// Expects to be given at least 1 4K page of DMA scratchpad mem
     pub fn new(
@@ -139,6 +151,17 @@ impl Display {
         assert_ne!(fb_paddr, 0);
         assert_ne!(fb_vaddr, 0);
 
+        let control_blocks = unsafe {
+            core::slice::from_raw_parts_mut(
+                (scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
+                NUM_CONTROL_BLOCKS as _,
+            )
+        };
+
+        for cb in control_blocks.iter_mut() {
+            cb.init();
+        }
+
         Self {
             dma,
             scratchpad_paddr,
@@ -154,13 +177,14 @@ impl Display {
         }
     }
 
+    /// Sets a pixel in the backbuffer
     /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
     pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
-        // frontbuffer
+        // frontbuffer, may not be contiguous so must use pitch (pitch >= bpp*width)
         //let offset = (y * (self.pitch / 4)) + x;
         //unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
 
-        // backbuffer
+        // backbuffer is contiguous
         let offset = (y * self.width) + x;
         unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), value) };
     }
@@ -173,130 +197,51 @@ impl Display {
         self.height
     }
 
-    /*
+    /// Clears the backbuffer and the frontbuffer
+    pub fn clear_screen(&mut self) {
+        self.set_scratchpad_src_fill_words(0_u32.into());
+
+        //self.dma_transfer(TransferOp::FillFront);
+
+        // TODO - DMA to backbuffer currently broken
+        //self.dma_transfer(TransferOp::FillBack);
+        // Clear it manually for now
+        self.fill_pixels(0_u32.into());
+        self.swap_buffers();
+    }
+
+    /// Clears the backbuffer
+    pub fn clear_buffer(&mut self) {
+        // TODO - public buffer enum type?
+        self.set_scratchpad_src_fill_words(0_u32.into());
+
+        // TODO - DMA to backbuffer currently broken
+        //self.dma_transfer(TransferOp::FillBack);
+        // Clear it manually for now
+        self.fill_pixels(0_u32.into());
+    }
+
+    pub fn swap_buffers(&mut self) {
+        self.dma_transfer(TransferOp::CopyBackToFront);
+    }
+
+    /// Fills the backbuffer with a color using a DMA transfer
     pub fn fill_color(&mut self, color: DisplayColor) {
+        self.set_scratchpad_src_fill_words(color);
+
+        // TODO - DMA to backbuffer currently broken
+        //self.dma_transfer(TransferOp::FillBack);
+        // Fill it manually for now
+        self.fill_pixels(color);
+    }
+
+    /// Fills the backbuffer with a color pixel by pixel
+    pub fn fill_pixels(&mut self, color: DisplayColor) {
         for y in 0..self.height {
             for x in 0..self.width {
                 self.set_pixel(x, y, color.into());
             }
         }
-    }
-    */
-
-    pub fn clear_screen(&mut self) {
-        //self.fill_color(0_u32.into());
-        self.fill_color(0x00FF00_u32.into());
-    }
-
-    pub fn clear_buffer(&mut self) {
-        // TODO
-    }
-
-    // TODO
-    pub fn swap_buffers(&mut self) {
-        // Construct a control block config for the DMA transfer
-        let mut cb_config = dma::ControlBlockConfig::default();
-        cb_config.dest_inc = true;
-        cb_config.dest_width_128 = true;
-        cb_config.src_width_128 = true;
-        cb_config.src_inc = true;
-        cb_config.burst_length = 4;
-        cb_config.wait_for_resp = true;
-
-        // Stride, in bytes, is a signed inc/dec applied after end of each row
-        let bbp: u32 = 4;
-        let dst_stride = self.pitch - (self.width * bbp);
-        let src_stride = 0;
-
-        // This is not really obvious from the DMA documentation,
-        // but the top 16 bits must be programmmed to "height -1"
-        // and not "height" in 2D mode.
-        cb_config.transfer_length = dma::TransferLength::Mode2D(
-            // transfer length in bytes of a row
-            (bbp * self.width) as _,
-            // How many x-length transfers are performed
-            (self.height - 1) as _,
-        );
-
-        let control_blocks = unsafe {
-            core::slice::from_raw_parts_mut(
-                (self.scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::       ControlBlock,
-                NUM_CONTROL_BLOCKS as _,
-            )
-        };
-
-        // Apply control block configuration to the control block
-        control_blocks[0].init();
-        control_blocks[0].config(
-            &cb_config,
-            self.fb_backbuffer_paddr,
-            self.fb_paddr,
-            src_stride as _,
-            dst_stride as _,
-            0,
-        );
-
-        // Wait for DMA to be ready, then do the transfer
-        while self.dma.is_busy() == true {}
-        self.dma
-            .start(self.scratchpad_paddr + SP_CONTROL_BLOCK_OFFSET);
-        self.dma.wait();
-
-        assert_eq!(self.dma.errors(), false, "DMA errors present");
-    }
-
-    pub fn fill_color(&mut self, color: DisplayColor) {
-        // Put the color in the fill word
-        self.set_scratchpad_src_fill_words(color);
-
-        // Construct a control block config for the DMA transfer
-        let mut cb_config = dma::ControlBlockConfig::default();
-        cb_config.dest_inc = true;
-        cb_config.dest_width_128 = true;
-        cb_config.src_width_128 = true;
-        cb_config.src_inc = false;
-        cb_config.burst_length = 4;
-        cb_config.wait_for_resp = true;
-
-        // Stride, in bytes, is a signed inc/dec applied after end of each row
-        let bbp: u32 = 4;
-        let stride = self.pitch - (self.width * bbp);
-
-        // This is not really obvious from the DMA documentation,
-        // but the top 16 bits must be programmmed to "height -1"
-        // and not "height" in 2D mode.
-        cb_config.transfer_length = dma::TransferLength::Mode2D(
-            // transfer length in bytes of a row
-            (bbp * self.width) as _,
-            // How many x-length transfers are performed
-            (self.height - 1) as _,
-        );
-
-        let control_blocks = unsafe {
-            core::slice::from_raw_parts_mut(
-                (self.scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
-                NUM_CONTROL_BLOCKS as _,
-            )
-        };
-
-        // Apply control block configuration to the control block
-        control_blocks[0].init();
-        control_blocks[0].config(
-            &cb_config,
-            self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
-            self.fb_paddr,
-            stride as _,
-            stride as _,
-            0,
-        );
-
-        // Wait for DMA to be ready, then do the transfer
-        while self.dma.is_busy() == true {}
-        self.dma
-            .start(self.scratchpad_paddr + SP_CONTROL_BLOCK_OFFSET);
-        self.dma.wait();
-
-        assert_eq!(self.dma.errors(), false, "DMA errors present");
     }
 
     /// Constructs the DMA source fill words in the internal scratchpad buffer
@@ -311,6 +256,99 @@ impl Display {
         for w in fill_words.iter_mut() {
             *w = color.into();
         }
+    }
+
+    fn dma_transfer(&mut self, op: TransferOp) {
+        // Stride, in bytes, is a signed inc/dec applied after end of each row
+        let bbp: u32 = 4;
+        let frontbuffer_stride = self.pitch - (self.width * bbp);
+        let backbuffer_stride = 0;
+
+        // Both the backbuffer and the scratchpad words are contiguous
+        let src_stride = 0;
+
+        let (src_inc, src_paddr, dst_paddr, dst_stride) = match op {
+            TransferOp::FillBack => {
+                // Filling the backbuffer with the contents of the scratchpad words
+                (
+                    false,
+                    self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
+                    self.fb_backbuffer_paddr,
+                    backbuffer_stride,
+                )
+            }
+            TransferOp::FillFront => {
+                // Filling the frontbuffer with the contents of the scratchpad words
+                (
+                    false,
+                    self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
+                    self.fb_paddr,
+                    frontbuffer_stride,
+                )
+            }
+            TransferOp::CopyBackToFront => {
+                // Copy the backbuffer to the frontbuffer
+                (
+                    true,
+                    self.fb_backbuffer_paddr,
+                    self.fb_paddr,
+                    frontbuffer_stride,
+                )
+            }
+        };
+
+        // This is not really obvious from the DMA documentation,
+        // but the top 16 bits must be programmmed to "height -1"
+        // and not "height" in 2D mode.
+        let transfer_length = dma::TransferLength::Mode2D(
+            // transfer length in bytes of a row
+            (bbp * self.width) as _,
+            // How many x-length transfers are performed
+            (self.height - 1) as _,
+        );
+
+        let cb_config = dma::ControlBlockConfig {
+            int_enable: false,
+            transfer_length,
+            wait_for_resp: true,
+            dest_inc: true,
+            dest_width_128: true,
+            dest_dreq: false,
+            dest_ignore: false,
+            src_inc,
+            src_width_128: true,
+            src_dreq: false,
+            src_ignore: false,
+            burst_length: 4,
+            peripheral_map: 0,
+            waits: 0,
+            no_wide_bursts: false,
+        };
+
+        let control_blocks = unsafe {
+            core::slice::from_raw_parts_mut(
+                (self.scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
+                NUM_CONTROL_BLOCKS as _,
+            )
+        };
+
+        // Apply control block configuration to the control block
+        control_blocks[0].config(
+            &cb_config,
+            src_paddr,
+            dst_paddr,
+            src_stride as _,
+            dst_stride as _,
+            0,
+        );
+
+        // Wait for DMA to be ready, then do the transfer
+        while self.dma.is_busy() == true {}
+        self.dma
+            .start(self.scratchpad_paddr + SP_CONTROL_BLOCK_OFFSET);
+        self.dma.wait();
+
+        assert_eq!(self.dma.errors(), false, "DMA errors present");
     }
 }
 
