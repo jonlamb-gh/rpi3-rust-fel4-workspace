@@ -1,87 +1,31 @@
 #![no_std]
 
 // TODO
+// - fix the broken DMA logic when src == scratchpad_buffer, dst == backbuffer?
 // - use embedded-graphics types/traits on Display (top-left()/etc)
 // - configs for single/double buffer modes
-// - handle PixelOrder
 // - better management/book-keeping of physical/virtual addresses
-// - FIX DMA logic breaks when src == sp, dst == backbuffer?
+// - better DisplayColor and pixel order handling, move to display_color.rs?
 
 extern crate bcm2837_hal;
 extern crate embedded_graphics;
 extern crate rgb;
 
+mod display_color;
+
 use bcm2837_hal::dma;
 use bcm2837_hal::mailbox_msg::PixelOrder;
 use core::ptr;
 use embedded_graphics::drawable::Pixel;
-use embedded_graphics::pixelcolor::PixelColor;
 use embedded_graphics::Drawing;
-use rgb::*;
+
+pub use display_color::DisplayColor;
 
 // TODO - until I figure out how to cleanly use embedded-graphics IntoIterator
 // to combine primitives,
 // this can be used to pass around a mut Display
 pub trait ObjectDrawing {
     fn draw_object(&self, display: &mut Display);
-}
-
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct DisplayColor(pub RGB8);
-
-impl PixelColor for DisplayColor {}
-
-impl From<u8> for DisplayColor {
-    #[inline]
-    fn from(other: u8) -> Self {
-        DisplayColor(RGB8::new(other, other, other))
-    }
-}
-
-impl From<u16> for DisplayColor {
-    #[inline]
-    fn from(other: u16) -> Self {
-        let mono = (other >> 1 & 0xFF) as u8;
-        DisplayColor(RGB8::new(mono, mono, mono))
-    }
-}
-
-impl From<u32> for DisplayColor {
-    #[inline]
-    fn from(other: u32) -> Self {
-        DisplayColor(RGB8::new(
-            (other & 0xFF) as u8,
-            (other >> 8 & 0xFF) as u8,
-            (other >> 16 & 0xFF) as u8,
-        ))
-    }
-}
-
-impl From<(u8, u8, u8)> for DisplayColor {
-    #[inline]
-    fn from(other: (u8, u8, u8)) -> Self {
-        DisplayColor(RGB8::new(other.0, other.1, other.2))
-    }
-}
-
-impl From<RGB8> for DisplayColor {
-    #[inline]
-    fn from(other: RGB8) -> Self {
-        DisplayColor(other)
-    }
-}
-
-impl From<DisplayColor> for u32 {
-    #[inline]
-    fn from(color: DisplayColor) -> u32 {
-        0xFF_00_00_00 | color.0.r as u32 | (color.0.g as u32) << 8 | (color.0.b as u32) << 16
-    }
-}
-
-impl DisplayColor {
-    pub fn into_inner(self) -> RGB8 {
-        self.0
-    }
 }
 
 /// Offset into the scratchpad buffer used to store
@@ -109,6 +53,7 @@ pub struct Display {
     pixel_order: PixelOrder,
     fb_paddr: u32,
     fb_ptr: *mut u32,
+    fb_backbuffer_size: usize,
     fb_backbuffer_paddr: u32,
     fb_backbuffer_ptr: *mut u32,
 }
@@ -172,6 +117,7 @@ impl Display {
             pixel_order,
             fb_paddr,
             fb_ptr: fb_vaddr as *mut u32,
+            fb_backbuffer_size: (width * height * 4) as _,
             fb_backbuffer_paddr,
             fb_backbuffer_ptr: fb_backbuffer_vaddr as *mut u32,
         }
@@ -180,13 +126,19 @@ impl Display {
     /// Sets a pixel in the backbuffer
     /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
     pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
-        // frontbuffer, may not be contiguous so must use pitch (pitch >= bpp*width)
-        //let offset = (y * (self.pitch / 4)) + x;
-        //unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
+        let color_word: u32 = if self.pixel_order == PixelOrder::RGB {
+            value
+        } else {
+            DisplayColor::from(value).as_alt()
+        };
 
-        // backbuffer is contiguous
+        // The frontbuffer, may not be contiguous so must use pitch (pitch >= bpp*width)
+        //let offset = (y * (self.pitch / 4)) + x;
+        //unsafe { ptr::write(self.fb_ptr.offset(offset as _), color_word) };
+
+        // The backbuffer is contiguous
         let offset = (y * self.width) + x;
-        unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), value) };
+        unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), color_word) };
     }
 
     pub fn width(&self) -> u32 {
@@ -237,10 +189,26 @@ impl Display {
 
     /// Fills the backbuffer with a color pixel by pixel
     pub fn fill_pixels(&mut self, color: DisplayColor) {
+        /*
         for y in 0..self.height {
             for x in 0..self.width {
                 self.set_pixel(x, y, color.into());
             }
+        }
+        */
+
+        // Since the backbuffer is contiguous, we can use memset/alike
+        let buffer = unsafe {
+            core::slice::from_raw_parts_mut(self.fb_backbuffer_ptr, self.fb_backbuffer_size / 4)
+        };
+        let color_word: u32 = if self.pixel_order == PixelOrder::RGB {
+            color.into()
+        } else {
+            color.as_alt()
+        };
+
+        for word in buffer.iter_mut() {
+            *word = color_word;
         }
     }
 
