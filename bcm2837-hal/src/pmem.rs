@@ -3,6 +3,7 @@
 
 use cache::bus_address_bits;
 
+#[derive(Debug, Copy, Clone)]
 pub struct PMem {
     vaddr: u64,
     paddr: u32,

@@ -17,6 +17,7 @@ use bcm2837_hal::dma;
 use bcm2837_hal::dma::DmaExt;
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
+use bcm2837_hal::pmem::PMem as HALPMem;
 use display::Display;
 use display::ObjectDrawing;
 use embedded_graphics::coord::Coord;
@@ -156,7 +157,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             pages as _,
             // Not cacheable
             0,
-        ).expect("pmem_new_pages_at_paddr");
+        )
+        .expect("pmem_new_pages_at_paddr");
 
     allocator.dma_cache_op(
         gpu_pmem.vaddr,
@@ -173,7 +175,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             bb_pages as _,
             // Not cacheable
             0,
-        ).expect("Failed to allocate display backbuffer memory");
+        )
+        .expect("Failed to allocate display backbuffer memory");
 
     debug_println!("Allocated display backbuffer");
     debug_println!(
@@ -214,7 +217,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             FAULT_EP_BADGE,
             IPC_EP_BADGE,
             THREAD_STACK_NUM_PAGES,
-        ).expect("Failed to create thread");
+        )
+        .expect("Failed to create thread");
 
     thread
         .configure_context(
@@ -222,7 +226,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             Some(thread_data_vaddr),
             None,
             None,
-        ).expect("Failed to configure thread");
+        )
+        .expect("Failed to configure thread");
 
     thread
         .start(InitCap::InitThreadTCB.into())
@@ -263,18 +268,31 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
 
     dma_parts.ch0.reset();
 
+    let width = thread_data.fb_width;
+    let height = thread_data.fb_height;
+    let pitch = thread_data.fb_pitch;
+
     let mut display = Display::new(
         dma_parts.ch0,
-        thread_data.scratchpad_vaddr,
-        thread_data.scratchpad_paddr as _,
         thread_data.fb_width,
         thread_data.fb_height,
-        thread_data.fb_pitch,
+        pitch,
         thread_data.fb_pixel_order,
-        thread_data.fb_vaddr,
-        thread_data.fb_paddr as _,
-        thread_data.fb_backbuffer_vaddr,
-        thread_data.fb_backbuffer_paddr as _,
+        HALPMem::new(
+            thread_data.scratchpad_vaddr,
+            thread_data.scratchpad_paddr as _,
+            PAGE_SIZE_4K as _,
+        ),
+        HALPMem::new(
+            thread_data.fb_vaddr,
+            thread_data.fb_paddr as _,
+            (pitch * height) as _,
+        ),
+        HALPMem::new(
+            thread_data.fb_backbuffer_vaddr,
+            thread_data.fb_backbuffer_paddr as _,
+            (width * height * 4) as _,
+        ),
     );
 
     let bar_graph_config = BarGraphConfig {

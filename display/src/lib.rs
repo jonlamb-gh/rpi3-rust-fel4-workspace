@@ -15,6 +15,7 @@ mod display_color;
 
 use bcm2837_hal::dma;
 use bcm2837_hal::mailbox_msg::PixelOrder;
+use bcm2837_hal::pmem::PMem;
 use core::ptr;
 use embedded_graphics::drawable::Pixel;
 use embedded_graphics::Drawing;
@@ -45,17 +46,14 @@ const NUM_FILL_WORDS: u32 = 4;
 #[derive(Debug)]
 pub struct Display {
     dma: dma::Channel,
-    scratchpad_vaddr: u64,
-    scratchpad_paddr: u32,
     width: u32,
     height: u32,
     pitch: u32,
     pixel_order: PixelOrder,
-    fb_paddr: u32,
-    fb_ptr: *mut u32,
-    fb_backbuffer_size: usize,
-    fb_backbuffer_paddr: u32,
-    fb_backbuffer_ptr: *mut u32,
+    scratchpad: PMem,
+    /// Framebuffer is also the front buffer
+    framebuffer: PMem,
+    backbuffer: PMem,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -72,33 +70,26 @@ impl Display {
     /// Expects to be given at least 1 4K page of DMA scratchpad mem
     pub fn new(
         dma: dma::Channel,
-        scratchpad_vaddr: u64,
-        scratchpad_paddr: u32,
         width: u32,
         height: u32,
         pitch: u32,
         pixel_order: PixelOrder,
-        fb_vaddr: u64,
-        fb_paddr: u32,
-        fb_backbuffer_vaddr: u64,
-        fb_backbuffer_paddr: u32,
+        scratchpad: PMem,
+        framebuffer: PMem,
+        backbuffer: PMem,
     ) -> Self {
         assert_eq!(
             dma.is_lite(),
             false,
             "Can't use a lite DMA engine for 2D transfers"
         );
-        assert_ne!(scratchpad_vaddr, 0);
-        assert_ne!(scratchpad_paddr, 0);
         assert_ne!(width, 0);
         assert_ne!(height, 0);
         assert_ne!(pitch, 0);
-        assert_ne!(fb_paddr, 0);
-        assert_ne!(fb_vaddr, 0);
 
         let control_blocks = unsafe {
             core::slice::from_raw_parts_mut(
-                (scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
+                (scratchpad.vaddr() + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
                 NUM_CONTROL_BLOCKS as _,
             )
         };
@@ -109,17 +100,13 @@ impl Display {
 
         Self {
             dma,
-            scratchpad_vaddr,
-            scratchpad_paddr,
             width,
             height,
             pitch,
             pixel_order,
-            fb_paddr,
-            fb_ptr: fb_vaddr as *mut u32,
-            fb_backbuffer_size: (width * height * 4) as _,
-            fb_backbuffer_paddr,
-            fb_backbuffer_ptr: fb_backbuffer_vaddr as *mut u32,
+            scratchpad,
+            framebuffer,
+            backbuffer,
         }
     }
 
@@ -134,11 +121,17 @@ impl Display {
 
         // The frontbuffer, may not be contiguous so must use pitch (pitch >= bpp*width)
         //let offset = (y * (self.pitch / 4)) + x;
-        //unsafe { ptr::write(self.fb_ptr.offset(offset as _), color_word) };
+        //unsafe { ptr::write(self.framebuffer.as_mut_ptr()
+        //.offset(offset as _), color_word) };
 
         // The backbuffer is contiguous
         let offset = (y * self.width) + x;
-        unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), color_word) };
+        unsafe {
+            ptr::write(
+                self.backbuffer.as_mut_ptr::<u32>().offset(offset as _),
+                color_word,
+            )
+        };
     }
 
     pub fn width(&self) -> u32 {
@@ -198,9 +191,7 @@ impl Display {
         */
 
         // Since the backbuffer is contiguous, we can use memset/alike
-        let buffer = unsafe {
-            core::slice::from_raw_parts_mut(self.fb_backbuffer_ptr, self.fb_backbuffer_size / 4)
-        };
+        let buffer = self.backbuffer.as_mut_slice(self.backbuffer.size() / 4);
         let color_word: u32 = if self.pixel_order == PixelOrder::RGB {
             color.into()
         } else {
@@ -216,7 +207,7 @@ impl Display {
     fn set_scratchpad_src_fill_words(&mut self, color: DisplayColor) {
         let fill_words = unsafe {
             core::slice::from_raw_parts_mut(
-                (self.scratchpad_vaddr + SP_FILL_WORDS_OFFSET as u64) as *mut u32,
+                (self.scratchpad.vaddr() + SP_FILL_WORDS_OFFSET as u64) as *mut u32,
                 NUM_FILL_WORDS as _,
             )
         };
@@ -240,8 +231,8 @@ impl Display {
                 // Filling the backbuffer with the contents of the scratchpad words
                 (
                     false,
-                    self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
-                    self.fb_backbuffer_paddr,
+                    self.scratchpad.paddr() + SP_FILL_WORDS_OFFSET,
+                    self.backbuffer.paddr(),
                     backbuffer_stride,
                 )
             }
@@ -249,8 +240,8 @@ impl Display {
                 // Filling the frontbuffer with the contents of the scratchpad words
                 (
                     false,
-                    self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
-                    self.fb_paddr,
+                    self.scratchpad.paddr() + SP_FILL_WORDS_OFFSET,
+                    self.framebuffer.paddr(),
                     frontbuffer_stride,
                 )
             }
@@ -258,8 +249,8 @@ impl Display {
                 // Copy the backbuffer to the frontbuffer
                 (
                     true,
-                    self.fb_backbuffer_paddr,
-                    self.fb_paddr,
+                    self.backbuffer.paddr(),
+                    self.framebuffer.paddr(),
                     frontbuffer_stride,
                 )
             }
@@ -295,7 +286,8 @@ impl Display {
 
         let control_blocks = unsafe {
             core::slice::from_raw_parts_mut(
-                (self.scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
+                (self.scratchpad.vaddr() + SP_CONTROL_BLOCK_OFFSET as u64)
+                    as *mut dma::ControlBlock,
                 NUM_CONTROL_BLOCKS as _,
             )
         };
@@ -313,7 +305,7 @@ impl Display {
         // Wait for DMA to be ready, then do the transfer
         while self.dma.is_busy() == true {}
         self.dma
-            .start(self.scratchpad_paddr + SP_CONTROL_BLOCK_OFFSET);
+            .start(self.scratchpad.paddr() + SP_CONTROL_BLOCK_OFFSET);
         self.dma.wait();
 
         assert_eq!(self.dma.errors(), false, "DMA errors present");
