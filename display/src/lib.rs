@@ -45,8 +45,8 @@ const NUM_FILL_WORDS: u32 = 4;
 #[derive(Debug)]
 pub struct Display {
     dma: dma::Channel,
-    scratchpad_paddr: u32,
     scratchpad_vaddr: u64,
+    scratchpad_paddr: u32,
     width: u32,
     height: u32,
     pitch: u32,
@@ -109,8 +109,8 @@ impl Display {
 
         Self {
             dma,
-            scratchpad_paddr,
             scratchpad_vaddr,
+            scratchpad_paddr,
             width,
             height,
             pitch,

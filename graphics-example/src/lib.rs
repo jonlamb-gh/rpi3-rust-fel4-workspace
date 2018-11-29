@@ -205,7 +205,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
     thread_data.fb_paddr = fb_resp.bus_paddr.into();
     thread_data.fb_backbuffer_vaddr = fb_backbuffer_pmem.vaddr;
     thread_data.fb_backbuffer_paddr = fb_backbuffer_pmem.paddr;
-    // TODO
+    // TODO - rename to bus_paddr to match
     //thread_data.fb_paddr = fb_resp.paddr.into();
 
     let mut thread = allocator

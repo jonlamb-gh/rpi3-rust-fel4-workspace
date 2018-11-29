@@ -13,4 +13,5 @@ pub mod cache;
 pub mod dma;
 pub mod mailbox;
 pub mod mailbox_msg;
+pub mod pmem;
 pub mod serial;
