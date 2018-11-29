@@ -107,6 +107,8 @@ pub struct Display {
     pixel_order: PixelOrder,
     fb_paddr: u32,
     fb_ptr: *mut u32,
+    fb_backbuffer_paddr: u32,
+    fb_backbuffer_ptr: *mut u32,
 }
 
 impl Display {
@@ -121,6 +123,8 @@ impl Display {
         pixel_order: PixelOrder,
         fb_vaddr: u64,
         fb_paddr: u32,
+        fb_backbuffer_vaddr: u64,
+        fb_backbuffer_paddr: u32,
     ) -> Self {
         assert_eq!(
             dma.is_lite(),
@@ -145,13 +149,20 @@ impl Display {
             pixel_order,
             fb_paddr,
             fb_ptr: fb_vaddr as *mut u32,
+            fb_backbuffer_paddr,
+            fb_backbuffer_ptr: fb_backbuffer_vaddr as *mut u32,
         }
     }
 
     /// RGB b[0] = Red, b[1] = Green, b[2] = Blue, b[3] = NA
     pub fn set_pixel(&mut self, x: u32, y: u32, value: u32) {
-        let offset = (y * (self.pitch / 4)) + x;
-        unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
+        // frontbuffer
+        //let offset = (y * (self.pitch / 4)) + x;
+        //unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
+        
+        // backbuffer
+        let offset = (y * self.width) + x;
+        unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), value) };
     }
 
     pub fn width(&self) -> u32 {
@@ -173,7 +184,62 @@ impl Display {
     */
 
     pub fn clear_screen(&mut self) {
-        self.fill_color(0_u32.into());
+        //self.fill_color(0_u32.into());
+        self.fill_color(0x00FF00_u32.into());
+    }
+
+    pub fn swap_buffers(&mut self) {
+        // Put the color in the fill word
+        self.set_scratchpad_src_fill_words(color);
+
+        // Construct a control block config for the DMA transfer
+        let mut cb_config = dma::ControlBlockConfig::default();
+        cb_config.dest_inc = true;
+        cb_config.dest_width_128 = true;
+        cb_config.src_width_128 = true;
+        cb_config.src_inc = false;
+        cb_config.burst_length = 4;
+        cb_config.wait_for_resp = true;
+
+        // Stride, in bytes, is a signed inc/dec applied after end of each row
+        let bbp: u32 = 4;
+        let stride = self.pitch - (self.width * bbp);
+
+        // This is not really obvious from the DMA documentation,
+        // but the top 16 bits must be programmmed to "height -1"
+        // and not "height" in 2D mode.
+        cb_config.transfer_length = dma::TransferLength::Mode2D(
+            // transfer length in bytes of a row
+            (bbp * self.width) as _,
+            // How many x-length transfers are performed
+            (self.height - 1) as _,
+        );
+
+        let control_blocks = unsafe {
+            core::slice::from_raw_parts_mut(
+                (self.scratchpad_vaddr + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::       ControlBlock,
+                NUM_CONTROL_BLOCKS as _,
+            )
+        };
+
+        // Apply control block configuration to the control block
+        control_blocks[0].init();
+        control_blocks[0].config(
+            &cb_config,
+            self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
+            self.fb_paddr,
+            stride as _,
+            stride as _,
+            0,
+        );
+
+        // Wait for DMA to be ready, then do the transfer
+        while self.dma.is_busy() == true {}
+        self.dma
+            .start(self.scratchpad_paddr + SP_CONTROL_BLOCK_OFFSET);
+        self.dma.wait();
+
+        assert_eq!(self.dma.errors(), false, "DMA errors present");
     }
 
     pub fn fill_color(&mut self, color: DisplayColor) {

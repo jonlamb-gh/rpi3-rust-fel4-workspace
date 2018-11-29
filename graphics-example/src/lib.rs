@@ -204,6 +204,8 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
     thread_data.fb_pixel_order = fb_resp.pixel_order;
     thread_data.fb_vaddr = gpu_pmem.vaddr;
     thread_data.fb_paddr = fb_resp.bus_paddr.into();
+    thread_data.fb_backbuffer_vaddr = fb_backbuffer_pmem.vaddr;
+    thread_data.fb_backbuffer_paddr = fb_backbuffer_pmem.paddr;
     // TODO
     //thread_data.fb_paddr = fb_resp.paddr.into();
 
@@ -242,6 +244,8 @@ struct ThreadData {
     fb_pixel_order: PixelOrder,
     fb_vaddr: seL4_Word,
     fb_paddr: seL4_Word,
+    fb_backbuffer_vaddr: seL4_Word,
+    fb_backbuffer_paddr: seL4_Word,
 }
 
 fn render_thread_function(thread_data_vaddr: seL4_Word) {
@@ -272,6 +276,8 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
         thread_data.fb_pixel_order,
         thread_data.fb_vaddr,
         thread_data.fb_paddr as _,
+        thread_data.fb_backbuffer_vaddr,
+        thread_data.fb_backbuffer_paddr as _,
     );
 
     let bar_graph_config = BarGraphConfig {
@@ -300,7 +306,8 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
     let mut u_val: u32 = 0;
 
     loop {
-        display.clear_screen();
+        display.clear_buffer();
+        //display.clear_screen();
 
         bar_graph.set_value(float_val);
         bar_graph.draw_object(&mut display);
@@ -314,5 +321,7 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
         }
 
         u_val += 1;
+
+        display.swap_buffers();
     }
 }
