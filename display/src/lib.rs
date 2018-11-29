@@ -159,7 +159,7 @@ impl Display {
         // frontbuffer
         //let offset = (y * (self.pitch / 4)) + x;
         //unsafe { ptr::write(self.fb_ptr.offset(offset as _), value) };
-        
+
         // backbuffer
         let offset = (y * self.width) + x;
         unsafe { ptr::write(self.fb_backbuffer_ptr.offset(offset as _), value) };
@@ -188,22 +188,25 @@ impl Display {
         self.fill_color(0x00FF00_u32.into());
     }
 
-    pub fn swap_buffers(&mut self) {
-        // Put the color in the fill word
-        self.set_scratchpad_src_fill_words(color);
+    pub fn clear_buffer(&mut self) {
+        // TODO
+    }
 
+    // TODO
+    pub fn swap_buffers(&mut self) {
         // Construct a control block config for the DMA transfer
         let mut cb_config = dma::ControlBlockConfig::default();
         cb_config.dest_inc = true;
         cb_config.dest_width_128 = true;
         cb_config.src_width_128 = true;
-        cb_config.src_inc = false;
+        cb_config.src_inc = true;
         cb_config.burst_length = 4;
         cb_config.wait_for_resp = true;
 
         // Stride, in bytes, is a signed inc/dec applied after end of each row
         let bbp: u32 = 4;
-        let stride = self.pitch - (self.width * bbp);
+        let dst_stride = self.pitch - (self.width * bbp);
+        let src_stride = 0;
 
         // This is not really obvious from the DMA documentation,
         // but the top 16 bits must be programmmed to "height -1"
@@ -226,10 +229,10 @@ impl Display {
         control_blocks[0].init();
         control_blocks[0].config(
             &cb_config,
-            self.scratchpad_paddr + SP_FILL_WORDS_OFFSET,
+            self.fb_backbuffer_paddr,
             self.fb_paddr,
-            stride as _,
-            stride as _,
+            src_stride as _,
+            dst_stride as _,
             0,
         );
 
