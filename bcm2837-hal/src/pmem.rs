@@ -1,7 +1,7 @@
 //! Physical memory wrapper
 // TODO - make generic so paddr/etc can be u32/u64
 
-use cache::{bus_address_bits, cpu_address_bits};
+use cache::bus_address_bits;
 
 pub struct PMem {
     vaddr: u64,
@@ -9,13 +9,6 @@ pub struct PMem {
     /// Size in bytes
     size: usize,
 }
-
-// as_slice()
-// as_mut_slice()
-// as_ptr()
-// as_mut_ptr()
-
-// bus_paddr() ?
 
 impl PMem {
     pub fn new(vaddr: u64, paddr: u32, size: usize) -> Self {
@@ -25,20 +18,20 @@ impl PMem {
         Self { vaddr, paddr, size }
     }
 
-    pub fn as_slice(&self) -> &[u32] {
-        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.size / 4) }
+    pub fn as_slice<T>(&self, count: usize) -> &[T] {
+        unsafe { core::slice::from_raw_parts(self.as_ptr(), count) }
     }
 
-    pub fn as_mut_slice(&self) -> &mut [u32] {
-        unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.size / 4) }
+    pub fn as_mut_slice<T>(&self, count: usize) -> &mut [T] {
+        unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr(), count) }
     }
 
-    pub fn as_ptr(&self) -> *const u32 {
-        self.vaddr as *const u32
+    pub fn as_ptr<T>(&self) -> *const T {
+        self.vaddr as *const T
     }
 
-    pub fn as_mut_ptr(&self) -> *mut u32 {
-        self.vaddr as *mut u32
+    pub fn as_mut_ptr<T>(&self) -> *mut T {
+        self.vaddr as *mut T
     }
 
     pub fn vaddr(&self) -> u64 {
@@ -47,6 +40,10 @@ impl PMem {
 
     pub fn paddr(&self) -> u32 {
         self.paddr
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     pub fn bus_paddr(&self) -> u32 {
