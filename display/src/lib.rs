@@ -4,8 +4,6 @@
 // - fix the broken DMA logic when src == scratchpad_buffer, dst == backbuffer?
 // - use embedded-graphics types/traits on Display (top-left()/etc)
 // - configs for single/double buffer modes
-// - better management/book-keeping of physical/virtual addresses
-// - better DisplayColor and pixel order handling, move to display_color.rs?
 
 extern crate bcm2837_hal;
 extern crate embedded_graphics;
@@ -31,17 +29,19 @@ pub trait ObjectDrawing {
 
 /// Offset into the scratchpad buffer used to store
 /// the DMA control block
-const SP_CONTROL_BLOCK_OFFSET: u32 = 0;
+const SP_CONTROL_BLOCK_OFFSET: usize = 0;
 
 /// Offset into the scratchpad buffer used to store
 /// a fill word in DMA fill operations.
 /// The first word in the last CONTROL_BLOCK_SIZE bytes
-const SP_FILL_WORDS_OFFSET: u32 = NUM_CONTROL_BLOCKS * dma::CONTROL_BLOCK_SIZE as u32;
+const SP_FILL_WORDS_OFFSET: usize = NUM_CONTROL_BLOCKS * dma::CONTROL_BLOCK_SIZE;
 
-const PAGE_SIZE_4K: u32 = 1 << 12;
-const NUM_CONTROL_BLOCKS: u32 = (PAGE_SIZE_4K / dma::CONTROL_BLOCK_SIZE) - 1;
+const PAGE_SIZE_4K: usize = 1 << 12;
+const NUM_CONTROL_BLOCKS: usize = (PAGE_SIZE_4K / dma::CONTROL_BLOCK_SIZE) - 1;
 
-const NUM_FILL_WORDS: u32 = 4;
+/// Fill words to be used by the DMA engine when doing color fills, up to
+/// 128 bit writes are supported
+const NUM_FILL_WORDS: usize = 4;
 
 #[derive(Debug)]
 pub struct Display {
@@ -51,6 +51,10 @@ pub struct Display {
     pitch: u32,
     pixel_order: PixelOrder,
     scratchpad: PMem,
+    /// Control blocks and fill words are split pmem from the provided
+    /// scratchpad
+    control_blocks: PMem,
+    fill_words: PMem,
     /// Framebuffer is also the front buffer
     framebuffer: PMem,
     backbuffer: PMem,
@@ -87,16 +91,24 @@ impl Display {
         assert_ne!(height, 0);
         assert_ne!(pitch, 0);
 
-        let control_blocks = unsafe {
-            core::slice::from_raw_parts_mut(
-                (scratchpad.vaddr() + SP_CONTROL_BLOCK_OFFSET as u64) as *mut dma::ControlBlock,
-                NUM_CONTROL_BLOCKS as _,
-            )
-        };
+        let control_blocks_pmem = PMem::new(
+            scratchpad.vaddr() + SP_CONTROL_BLOCK_OFFSET as u64,
+            scratchpad.paddr() + SP_CONTROL_BLOCK_OFFSET as u32,
+            NUM_CONTROL_BLOCKS * dma::CONTROL_BLOCK_SIZE,
+        );
 
-        for cb in control_blocks.iter_mut() {
+        for cb in control_blocks_pmem
+            .as_mut_slice::<dma::ControlBlock>(NUM_CONTROL_BLOCKS)
+            .iter_mut()
+        {
             cb.init();
         }
+
+        let fill_words_pmem = PMem::new(
+            scratchpad.vaddr() + SP_FILL_WORDS_OFFSET as u64,
+            scratchpad.paddr() + SP_FILL_WORDS_OFFSET as u32,
+            NUM_FILL_WORDS * 4,
+        );
 
         Self {
             dma,
@@ -105,9 +117,19 @@ impl Display {
             pitch,
             pixel_order,
             scratchpad,
+            control_blocks: control_blocks_pmem,
+            fill_words: fill_words_pmem,
             framebuffer,
             backbuffer,
         }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     /// Sets a pixel in the backbuffer
@@ -134,22 +156,14 @@ impl Display {
         };
     }
 
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.height
-    }
-
     /// Clears the backbuffer and the frontbuffer
     pub fn clear_screen(&mut self) {
         self.set_scratchpad_src_fill_words(0_u32.into());
 
-        //self.dma_transfer(TransferOp::FillFront);
+        // self.dma_transfer(TransferOp::FillFront);
 
         // TODO - DMA to backbuffer currently broken
-        //self.dma_transfer(TransferOp::FillBack);
+        // self.dma_transfer(TransferOp::FillBack);
         // Clear it manually for now
         self.fill_pixels(0_u32.into());
         self.swap_buffers();
@@ -161,7 +175,7 @@ impl Display {
         self.set_scratchpad_src_fill_words(0_u32.into());
 
         // TODO - DMA to backbuffer currently broken
-        //self.dma_transfer(TransferOp::FillBack);
+        // self.dma_transfer(TransferOp::FillBack);
         // Clear it manually for now
         self.fill_pixels(0_u32.into());
     }
@@ -175,23 +189,17 @@ impl Display {
         self.set_scratchpad_src_fill_words(color);
 
         // TODO - DMA to backbuffer currently broken
-        //self.dma_transfer(TransferOp::FillBack);
+        // self.dma_transfer(TransferOp::FillBack);
         // Fill it manually for now
         self.fill_pixels(color);
     }
 
     /// Fills the backbuffer with a color pixel by pixel
     pub fn fill_pixels(&mut self, color: DisplayColor) {
-        /*
-        for y in 0..self.height {
-            for x in 0..self.width {
-                self.set_pixel(x, y, color.into());
-            }
-        }
-        */
-
         // Since the backbuffer is contiguous, we can use memset/alike
-        let buffer = self.backbuffer.as_mut_slice(self.backbuffer.size() / 4);
+        let buffer = self
+            .backbuffer
+            .as_mut_slice::<u32>(self.backbuffer.size() / 4);
         let color_word: u32 = if self.pixel_order == PixelOrder::RGB {
             color.into()
         } else {
@@ -205,12 +213,7 @@ impl Display {
 
     /// Constructs the DMA source fill words in the internal scratchpad buffer
     fn set_scratchpad_src_fill_words(&mut self, color: DisplayColor) {
-        let fill_words = unsafe {
-            core::slice::from_raw_parts_mut(
-                (self.scratchpad.vaddr() + SP_FILL_WORDS_OFFSET as u64) as *mut u32,
-                NUM_FILL_WORDS as _,
-            )
-        };
+        let fill_words = self.fill_words.as_mut_slice::<u32>(NUM_FILL_WORDS);
 
         for w in fill_words.iter_mut() {
             *w = color.into();
@@ -231,7 +234,7 @@ impl Display {
                 // Filling the backbuffer with the contents of the scratchpad words
                 (
                     false,
-                    self.scratchpad.paddr() + SP_FILL_WORDS_OFFSET,
+                    self.fill_words.paddr(),
                     self.backbuffer.paddr(),
                     backbuffer_stride,
                 )
@@ -240,7 +243,7 @@ impl Display {
                 // Filling the frontbuffer with the contents of the scratchpad words
                 (
                     false,
-                    self.scratchpad.paddr() + SP_FILL_WORDS_OFFSET,
+                    self.fill_words.paddr(),
                     self.framebuffer.paddr(),
                     frontbuffer_stride,
                 )
@@ -260,7 +263,7 @@ impl Display {
         // but the top 16 bits must be programmmed to "height -1"
         // and not "height" in 2D mode.
         let transfer_length = dma::TransferLength::Mode2D(
-            // transfer length in bytes of a row
+            // Transfer length in bytes of a row
             (bbp * self.width) as _,
             // How many x-length transfers are performed
             (self.height - 1) as _,
@@ -284,13 +287,9 @@ impl Display {
             no_wide_bursts: false,
         };
 
-        let control_blocks = unsafe {
-            core::slice::from_raw_parts_mut(
-                (self.scratchpad.vaddr() + SP_CONTROL_BLOCK_OFFSET as u64)
-                    as *mut dma::ControlBlock,
-                NUM_CONTROL_BLOCKS as _,
-            )
-        };
+        let control_blocks = self
+            .control_blocks
+            .as_mut_slice::<dma::ControlBlock>(NUM_CONTROL_BLOCKS);
 
         // Apply control block configuration to the control block
         control_blocks[0].config(
@@ -304,8 +303,7 @@ impl Display {
 
         // Wait for DMA to be ready, then do the transfer
         while self.dma.is_busy() == true {}
-        self.dma
-            .start(self.scratchpad.paddr() + SP_CONTROL_BLOCK_OFFSET);
+        self.dma.start(self.control_blocks.paddr());
         self.dma.wait();
 
         assert_eq!(self.dma.errors(), false, "DMA errors present");

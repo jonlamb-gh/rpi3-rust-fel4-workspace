@@ -127,7 +127,7 @@ impl From<&ControlBlockConfig> for u32 {
     }
 }
 
-pub const CONTROL_BLOCK_SIZE: u32 = 8 * 4;
+pub const CONTROL_BLOCK_SIZE: usize = 8 * 4;
 
 /// 8 words (256 bits) in length and must start at a 256-bit aligned address
 #[derive(Debug)]
