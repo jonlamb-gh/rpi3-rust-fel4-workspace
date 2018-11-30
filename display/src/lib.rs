@@ -46,9 +46,9 @@ const NUM_FILL_WORDS: usize = 4;
 #[derive(Debug)]
 pub struct Display {
     dma: dma::Channel,
-    width: u32,
-    height: u32,
-    pitch: u32,
+    width: usize,
+    height: usize,
+    pitch: usize,
     pixel_order: PixelOrder,
     scratchpad: PMem,
     /// Control blocks and fill words are split pmem from the provided
@@ -74,9 +74,9 @@ impl Display {
     /// Expects to be given at least 1 4K page of DMA scratchpad mem
     pub fn new(
         dma: dma::Channel,
-        width: u32,
-        height: u32,
-        pitch: u32,
+        width: usize,
+        height: usize,
+        pitch: usize,
         pixel_order: PixelOrder,
         scratchpad: PMem,
         framebuffer: PMem,
@@ -124,11 +124,11 @@ impl Display {
         }
     }
 
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> usize {
         self.width
     }
 
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> usize {
         self.height
     }
 
@@ -147,7 +147,7 @@ impl Display {
         //.offset(offset as _), color_word) };
 
         // The backbuffer is contiguous
-        let offset = (y * self.width) + x;
+        let offset = (y * self.width as u32) + x;
         unsafe {
             ptr::write(
                 self.backbuffer.as_mut_ptr::<u32>().offset(offset as _),
@@ -180,6 +180,7 @@ impl Display {
         self.fill_pixels(0_u32.into());
     }
 
+    /// Swap/copy the backbuffer to the frontbuffer/framebuffer
     pub fn swap_buffers(&mut self) {
         self.dma_transfer(TransferOp::CopyBackToFront);
     }
@@ -222,8 +223,8 @@ impl Display {
 
     fn dma_transfer(&mut self, op: TransferOp) {
         // Stride, in bytes, is a signed inc/dec applied after end of each row
-        let bbp: u32 = 4;
-        let frontbuffer_stride = self.pitch - (self.width * bbp);
+        let bbp: usize = 4;
+        let frontbuffer_stride = (self.pitch - (self.width * bbp)) as u32;
         let backbuffer_stride = 0;
 
         // Both the backbuffer and the scratchpad words are contiguous
@@ -316,7 +317,7 @@ impl Drawing<DisplayColor> for Display {
         T: Iterator<Item = Pixel<DisplayColor>>,
     {
         for Pixel(coord, color) in item_pixels {
-            if coord[0] >= self.width || coord[1] >= self.height {
+            if coord[0] as usize >= self.width || coord[1] as usize >= self.height {
                 continue;
             }
 

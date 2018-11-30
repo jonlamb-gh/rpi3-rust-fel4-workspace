@@ -157,8 +157,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             pages as _,
             // Not cacheable
             0,
-        )
-        .expect("pmem_new_pages_at_paddr");
+        ).expect("pmem_new_pages_at_paddr");
 
     allocator.dma_cache_op(
         gpu_pmem.vaddr,
@@ -175,8 +174,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             bb_pages as _,
             // Not cacheable
             0,
-        )
-        .expect("Failed to allocate display backbuffer memory");
+        ).expect("Failed to allocate display backbuffer memory");
 
     debug_println!("Allocated display backbuffer");
     debug_println!(
@@ -217,8 +215,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             FAULT_EP_BADGE,
             IPC_EP_BADGE,
             THREAD_STACK_NUM_PAGES,
-        )
-        .expect("Failed to create thread");
+        ).expect("Failed to create thread");
 
     thread
         .configure_context(
@@ -226,8 +223,7 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
             Some(thread_data_vaddr),
             None,
             None,
-        )
-        .expect("Failed to configure thread");
+        ).expect("Failed to configure thread");
 
     thread
         .start(InitCap::InitThreadTCB.into())
@@ -274,9 +270,9 @@ fn render_thread_function(thread_data_vaddr: seL4_Word) {
 
     let mut display = Display::new(
         dma_parts.ch0,
-        thread_data.fb_width,
-        thread_data.fb_height,
-        pitch,
+        thread_data.fb_width as _,
+        thread_data.fb_height as _,
+        pitch as _,
         thread_data.fb_pixel_order,
         HALPMem::new(
             thread_data.scratchpad_vaddr,

@@ -4,12 +4,7 @@
 // - generate all the channels via macros
 // - following https://github.com/rust-embedded/embedded-hal/issues/37#issuecomment-377823801
 // - use the above to make a safe api rather than just control block addr's
-
-// height - 1
-// https://github.com/raspberrypi/linux/blob/rpi-4.19.y/drivers/video/fbdev/bcm2708_fb.c#L604
-//
-// DMA guide
-// https://github.com/seemoo-lab/bcm-rpi3/blob/master/kernel/Documentation/DMA-API-HOWTO.txt
+// - fix the sync/fences/barriers
 
 use bcm2837::dma::*;
 use core::ops::Deref;
