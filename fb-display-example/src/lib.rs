@@ -10,7 +10,8 @@ use bcm2837_hal::bcm2837::mbox::{
 };
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
-use display::Display;
+use bcm2837_hal::pmem::PMem as HALPMem;
+use core::ptr;
 use sel4_sys::*;
 use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
 
@@ -65,8 +66,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     let mut mbox: Mailbox = Mailbox::new(
         MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        mbox_buffer_pmem.vaddr as _,
+        HALPMem::new(
+            mbox_buffer_pmem.vaddr,
+            mbox_buffer_pmem.paddr as _,
+            PAGE_SIZE_4K as _,
+        ),
     );
 
     debug_println!("\nCreating a Display\n");
@@ -110,12 +114,13 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
 
     allocator.dma_cache_op(pmem.vaddr, mem_size_bytes as _, DMACacheOp::CleanInvalidate);
 
-    let mut display = Display::new(
-        fb_resp.phy_width,
-        fb_resp.phy_height,
-        fb_resp.pitch,
-        pmem.vaddr,
-    );
+    let fb_ptr = pmem.vaddr as *mut u32;
 
-    display.fill_color(0xFF00FF_u32.into());
+    // Fill the screen pixel-by-pixel with green
+    for y in 0..fb_resp.phy_height {
+        for x in 0..fb_resp.phy_width {
+            let offset = (y * (fb_resp.pitch / 4)) + x;
+            unsafe { ptr::write(fb_ptr.offset(offset as _), 0xFF_00_FF_00) };
+        }
+    }
 }

@@ -19,6 +19,26 @@ impl PMem {
         Self { vaddr, paddr, size }
     }
 
+    /// Split the pmem at the given offset/size from the front of the region
+    pub fn split(&mut self, offset: usize) -> Self {
+        assert!(offset < self.size);
+
+        // New region starts the front of our region
+        let mut new_region = self.clone();
+        new_region.size = offset;
+
+        self.vaddr += offset as u64;
+        self.paddr += offset as u32;
+        self.size -= offset;
+
+        new_region
+    }
+
+    pub fn reduce_to(&mut self, size: usize) {
+        assert!(size <= self.size);
+        self.size = size;
+    }
+
     pub fn as_slice<T>(&self, count: usize) -> &[T] {
         unsafe { core::slice::from_raw_parts(self.as_ptr(), count) }
     }

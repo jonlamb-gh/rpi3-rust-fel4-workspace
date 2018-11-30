@@ -6,6 +6,7 @@ use core::sync::atomic::{compiler_fence, Ordering};
 use cortex_a::{asm, barrier};
 
 use mailbox_msg::{MailboxMsgBufferConstructor, Resp, MAILBOX_BUFFER_LEN};
+use pmem::PMem;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
@@ -36,8 +37,7 @@ mod response_status {
 /// Mailbox abstraction
 pub struct Mailbox {
     mbox: MBOX,
-    buffer_vc_paddr: u32,
-    buffer: *mut MailboxBuffer,
+    buffer_pmem: PMem,
 }
 
 #[repr(C)]
@@ -47,12 +47,8 @@ struct MailboxBuffer {
 }
 
 impl Mailbox {
-    pub fn new(mbox: MBOX, buffer_vc_paddr: u32, buffer_vaddr: u32) -> Self {
-        Self {
-            mbox,
-            buffer_vc_paddr,
-            buffer: buffer_vaddr as *mut MailboxBuffer,
-        }
+    pub fn new(mbox: MBOX, buffer_pmem: PMem) -> Self {
+        Self { mbox, buffer_pmem }
     }
 
     /// Make a mailbox call. Returns Err(MboxError) on failure, Ok(()) success
@@ -61,8 +57,10 @@ impl Mailbox {
         channel: Channel,
         constructor: &T,
     ) -> Result<Resp, Error> {
+        let buffer = self.buffer_pmem.as_mut_ptr::<MailboxBuffer>();
+
         unsafe {
-            constructor.construct_buffer(&mut (*self.buffer).data);
+            constructor.construct_buffer(&mut (*buffer).data);
         }
 
         // Insert a compiler fence that ensures that all stores to the
@@ -82,7 +80,7 @@ impl Mailbox {
             asm::nop();
         }
 
-        let buf_ptr = self.buffer_vc_paddr;
+        let buf_ptr = self.buffer_pmem.paddr();
 
         // write the address of our message to the mailbox with channel identifier
         self.mbox
@@ -109,13 +107,14 @@ impl Mailbox {
                 //compiler_fence(Ordering::Release);
                 unsafe { barrier::dmb(barrier::SY) };
 
-                //let status = unsafe { (*self.buffer).data[1] };
-                let status: u32 =
-                    unsafe { ::core::ptr::read_volatile((self.buffer as *mut u32).offset(1)) };
+                let status = unsafe { (*buffer).data[1] };
+                //let status: u32 =
+                //    unsafe { ::core::ptr::read_volatile((self.buffer as *mut u32).offset(1))
+                // };
 
                 // is it a valid successful response?
                 return match status {
-                    response_status::SUCCESS => Ok(Resp::from(unsafe { &(*self.buffer).data })),
+                    response_status::SUCCESS => Ok(Resp::from(unsafe { &(*buffer).data })),
                     response_status::ERROR => Err(Error::BadRequest),
                     _ => Err(Error::BadStatusWord),
                 };

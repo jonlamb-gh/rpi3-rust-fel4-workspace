@@ -12,6 +12,7 @@ use bcm2837_hal::bcm2837::mbox::{
 use bcm2837_hal::dma::*;
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
+use bcm2837_hal::pmem::PMem as HALPMem;
 use core::ptr;
 use sel4_sys::*;
 use sel4twinkle_alloc::{Allocator, DMACacheOp, PMem, PAGE_BITS_4K, PAGE_SIZE_4K};
@@ -72,8 +73,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     // Mailbox
     let mut mbox: Mailbox = Mailbox::new(
         MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        mbox_buffer_pmem.vaddr as _,
+        HALPMem::new(
+            mbox_buffer_pmem.vaddr,
+            mbox_buffer_pmem.paddr as _,
+            PAGE_SIZE_4K as _,
+        ),
     );
 
     // DMA
@@ -129,7 +133,7 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     );
 
     // Scratchpad bytes at the end of the page
-    let scratchpad_offset = num_cb as u32 * CONTROL_BLOCK_SIZE;
+    let scratchpad_offset = num_cb as u32 * CONTROL_BLOCK_SIZE as u32;
     let scratchpad_vaddr = dma_cb_pmem.vaddr as u32 + scratchpad_offset;
     let scratchpad_paddr = dma_cb_pmem.paddr as u32 + scratchpad_offset;
     let scratchpad_ptr = scratchpad_vaddr as *mut u32;

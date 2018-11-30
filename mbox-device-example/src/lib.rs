@@ -11,6 +11,7 @@ use bcm2837_hal::bcm2837::mbox::{
 use bcm2837_hal::bcm2837::uart1::{PADDR as UART1_PADDR, UART1};
 use bcm2837_hal::mailbox::{Channel, Mailbox};
 use bcm2837_hal::mailbox_msg::*;
+use bcm2837_hal::pmem::PMem as HALPMem;
 use bcm2837_hal::serial::Serial;
 use core::fmt::Write;
 use sel4_sys::*;
@@ -95,8 +96,11 @@ pub fn init(allocator: &mut Allocator, _global_fault_ep_cap: seL4_CPtr) {
     // Mailbox
     let mut mbox: Mailbox = Mailbox::new(
         MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        mbox_buffer_pmem.vaddr as _,
+        HALPMem::new(
+            mbox_buffer_pmem.vaddr,
+            mbox_buffer_pmem.paddr as _,
+            PAGE_SIZE_4K as _,
+        ),
     );
 
     writeln!(serial, "\nMailbox send GetSerialNumCmd\n").ok();

@@ -37,52 +37,53 @@ ELF-loading image 'root-task'
 Enabling MMU and paging
 Jumping to kernel-image entry point...
 
-Warning:  gpt_cnt_tval 62500000, expected 19200000
 Bootstrapping kernel
 Booting all finished, dropped to user space
 ------------- bootinfo -------------
-bootinfo.empty.start = 96
+bootinfo.empty.start = 131
 bootinfo.empty.end = 524288
 bootinfo.userImageFrames.start = 15
-bootinfo.userImageFrames.end = 64
-bootinfo.untyped.start = 64
-bootinfo.untyped.end = 96
+bootinfo.userImageFrames.end = 96
+bootinfo.untyped.start = 96
+bootinfo.untyped.end = 131
 bootinfo.untypedList
-  length = 32
-  [0 | 64] paddr = 0x1000000 - size_bits = 16 - is_device = 0
-  [1 | 65] paddr = 0x1261000 - size_bits = 12 - is_device = 0
-  [2 | 66] paddr = 0x1262000 - size_bits = 13 - is_device = 0
-  [3 | 67] paddr = 0x1264000 - size_bits = 14 - is_device = 0
-  [4 | 68] paddr = 0x1268000 - size_bits = 15 - is_device = 0
-  [5 | 69] paddr = 0x1270000 - size_bits = 16 - is_device = 0
-  [6 | 70] paddr = 0x1280000 - size_bits = 19 - is_device = 0
-  [7 | 71] paddr = 0x1300000 - size_bits = 20 - is_device = 0
-  [8 | 72] paddr = 0x1400000 - size_bits = 22 - is_device = 0
-  [9 | 73] paddr = 0x1800000 - size_bits = 23 - is_device = 0
-  [10 | 74] paddr = 0x2000000 - size_bits = 24 - is_device = 0
-  [11 | 75] paddr = 0x3000000 - size_bits = 25 - is_device = 0
-  [12 | 76] paddr = 0x5000000 - size_bits = 24 - is_device = 0
-  [13 | 77] paddr = 0x6000000 - size_bits = 23 - is_device = 0
-  [14 | 78] paddr = 0x6800000 - size_bits = 22 - is_device = 0
-  [15 | 79] paddr = 0x6C00000 - size_bits = 21 - is_device = 0
-  [16 | 80] paddr = 0x6E00000 - size_bits = 20 - is_device = 0
-  [17 | 81] paddr = 0x6F00000 - size_bits = 19 - is_device = 0
-  [18 | 82] paddr = 0x6F80000 - size_bits = 18 - is_device = 0
-  [19 | 83] paddr = 0x6FC0000 - size_bits = 17 - is_device = 0
-  [20 | 84] paddr = 0x6FE0000 - size_bits = 16 - is_device = 0
-  [21 | 85] paddr = 0x6FF0000 - size_bits = 14 - is_device = 0
-  [22 | 86] paddr = 0x6FF4000 - size_bits = 13 - is_device = 0
-  [23 | 87] paddr = 0x3F00B000 - size_bits = 12 - is_device = 1
-  [24 | 88] paddr = 0x3F100000 - size_bits = 12 - is_device = 1
-  [25 | 89] paddr = 0x3F104000 - size_bits = 12 - is_device = 1
-  [26 | 90] paddr = 0x3F200000 - size_bits = 12 - is_device = 1
-  [27 | 91] paddr = 0x3F201000 - size_bits = 12 - is_device = 1
-  [28 | 92] paddr = 0x3F300000 - size_bits = 12 - is_device = 1
-  [29 | 93] paddr = 0x3F980000 - size_bits = 12 - is_device = 1
-  [30 | 94] paddr = 0x3F215000 - size_bits = 12 - is_device = 1
-  [31 | 95] paddr = 0x3F00B000 - size_bits = 12 - is_device = 1
+  length = 35
+  [0 | 96] paddr = 0x1000000 - size_bits = 16 - is_device = 0
+  [1 | 97] paddr = 0x1282000 - size_bits = 13 - is_device = 0
+  [2 | 98] paddr = 0x1284000 - size_bits = 14 - is_device = 0
+  [3 | 99] paddr = 0x1288000 - size_bits = 15 - is_device = 0
+  [4 | 100] paddr = 0x1290000 - size_bits = 16 - is_device = 0
+  [5 | 101] paddr = 0x12A0000 - size_bits = 17 - is_device = 0
+  [6 | 102] paddr = 0x12C0000 - size_bits = 18 - is_device = 0
+  [7 | 103] paddr = 0x1300000 - size_bits = 20 - is_device = 0
+  [8 | 104] paddr = 0x1400000 - size_bits = 22 - is_device = 0
+  [9 | 105] paddr = 0x1800000 - size_bits = 23 - is_device = 0
+  [10 | 106] paddr = 0x2000000 - size_bits = 24 - is_device = 0
+  [11 | 107] paddr = 0x3000000 - size_bits = 25 - is_device = 0
+  [12 | 108] paddr = 0x5000000 - size_bits = 24 - is_device = 0
+  [13 | 109] paddr = 0x6000000 - size_bits = 23 - is_device = 0
+  [14 | 110] paddr = 0x6800000 - size_bits = 22 - is_device = 0
+  [15 | 111] paddr = 0x6C00000 - size_bits = 21 - is_device = 0
+  [16 | 112] paddr = 0x6E00000 - size_bits = 20 - is_device = 0
+  [17 | 113] paddr = 0x6F00000 - size_bits = 19 - is_device = 0
+  [18 | 114] paddr = 0x6F80000 - size_bits = 18 - is_device = 0
+  [19 | 115] paddr = 0x6FC0000 - size_bits = 17 - is_device = 0
+  [20 | 116] paddr = 0x6FE0000 - size_bits = 16 - is_device = 0
+  [21 | 117] paddr = 0x6FF0000 - size_bits = 14 - is_device = 0
+  [22 | 118] paddr = 0x6FF4000 - size_bits = 13 - is_device = 0
+  [23 | 119] paddr = 0x3C000000 - size_bits = 24 - is_device = 1
+  [24 | 120] paddr = 0x3D000000 - size_bits = 25 - is_device = 1
+  [25 | 121] paddr = 0x3F00B000 - size_bits = 12 - is_device = 1
+  [26 | 122] paddr = 0x3F100000 - size_bits = 12 - is_device = 1
+  [27 | 123] paddr = 0x3F104000 - size_bits = 12 - is_device = 1
+  [28 | 124] paddr = 0x3F200000 - size_bits = 12 - is_device = 1
+  [29 | 125] paddr = 0x3F201000 - size_bits = 12 - is_device = 1
+  [30 | 126] paddr = 0x3F300000 - size_bits = 12 - is_device = 1
+  [31 | 127] paddr = 0x3F980000 - size_bits = 12 - is_device = 1
+  [32 | 128] paddr = 0x3F215000 - size_bits = 12 - is_device = 1
+  [33 | 129] paddr = 0x3F00B000 - size_bits = 12 - is_device = 1
+  [34 | 130] paddr = 0x3F007000 - size_bits = 12 - is_device = 1
 --------------------------
-
 
 Hello from custom init fn
 
@@ -103,7 +104,35 @@ Mailbox send GetSerialNumCmd
 
 Response = GetSerialNumResp(
     GetSerialNumResp {
-        serial_number: 0
+        serial_number: 3112636479
+    }
+)
+
+Mailbox send GetTemperatureCmd
+
+Response = GetTemperatureResp(
+    GetTemperatureResp {
+        id: 0,
+        value: 42932
+    }
+)
+
+Mailbox send GetArmMemCmd
+
+Response = GetArmMemResp(
+    GetArmMemResp {
+        addr: 0,
+        size: 994050048 (0x3B40_0000)
+    }
+)
+
+Mailbox send GetVcMemCmd
+
+Response = GetVcMemResp(
+    GetVcMemResp {
+        addr: 994050048 (0x3B40_0000),
+        size: 79691776 (0x4C0_0000)
+        top: 0x4000_0000
     }
 )
 
