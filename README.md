@@ -1,5 +1,8 @@
 # Rust workspace for Raspberry Pi 3 feL4/seL4 things
 
+Rust embedded things running on the [seL4 microkernel](https://sel4.systems/) for
+the Raspberry Pi 3 platform.
+
 NOTE: most of these are a WIP and in an experimental/hacky state
 
 Some of the projects/libs:
