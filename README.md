@@ -60,3 +60,12 @@ arm_64bit=1
 dtoverlay=pi3-disable-bt
 kernel=u-boot.bin
 ```
+
+## Simulating
+
+TODO - need to add custom simulation configs to cargo-fel4 so it's easier to
+enble graphics/etc
+
+By default, the underlying seL4 `simulate` script supplies QEMU with `--no-graphic`.
+
+If you want to enable graphics (to see the GPU/framebuffer examples), add the extra arg `--graphic=`.
