@@ -60,6 +60,8 @@ pub struct Display {
     backbuffer: PMem,
 }
 
+// TODO - move value to a param here,
+// reduce 'set_scratchpad_src_fill_words()'calls after fix
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum TransferOp {
     /// Fill the backbuffer with a value

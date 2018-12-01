@@ -1,8 +1,20 @@
 # Rust workspace for Raspberry Pi 3 feL4/seL4 things
 
+NOTE: most of these are a WIP and in an experimental/hacky state
+
+Some of the projects/libs:
+
+- [bcm2837/](bcm2837/): BCM2837 device crate
+- [bcm2837-hal/](bcm2837-hal/): embedded-hal traits for the BCM2837
+- [display/](display/): Double-buffered, DMA backed graphics display library
+- [clock-display/](clock-display/): Example project, render a simple clock
+- [dma-example/](dma-example/): Example project, DMA transfer to GPU memory
+- [spi-enc28j60-eth-example/](spi-enc28j60-eth-example/): Example Ethernet driver
+
 ## Dependencies
 
-* [cargo-fel4](https://github.com/maindotrs/cargo-fel4)
+* ~~[cargo-fel4](https://github.com/maindotrs/cargo-fel4)~~
+* [cargo-fel4 with my rpi3 changes](https://github.com/jonlamb-gh/cargo-fel4/tree/add-rpi3-support-and-custom-root-task)
 
 ## U-boot
 
