@@ -12,3 +12,7 @@ a ENC28J60 SPI Ethernet controller.
 ## Links
 
 - https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md
+
+## TODO
+
+Check GPIO logic: https://github.com/raspberrypi/linux/blob/rpi-3.12.y/drivers/spi/spi-bcm2708.c#L115
