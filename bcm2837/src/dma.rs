@@ -175,7 +175,7 @@ impl From<u64> for DMA {
 unsafe impl Send for DMA {}
 
 impl DMA {
-    pub fn ptr(&self) -> *const RegisterBlock {
+    pub fn as_ptr(&self) -> *const RegisterBlock {
         self.addr as *const _
     }
 }
@@ -183,6 +183,6 @@ impl DMA {
 impl Deref for DMA {
     type Target = RegisterBlock;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr() }
+        unsafe { &*self.as_ptr() }
     }
 }

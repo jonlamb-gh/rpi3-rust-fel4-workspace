@@ -261,7 +261,7 @@ impl DmaExt for DMA {
     type Parts = Parts;
 
     fn split(self) -> Parts {
-        let base_vaddr = self.ptr() as u64;
+        let base_vaddr = self.as_ptr() as u64;
 
         Parts {
             ch0: Channel {

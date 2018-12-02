@@ -48,27 +48,14 @@ impl From<u64> for MBOX {
 unsafe impl Send for MBOX {}
 
 impl MBOX {
-    pub fn ptr(&self) -> *const RegisterBlock {
+    pub fn as_ptr(&self) -> *const RegisterBlock {
         self.addr as *const _
     }
-
-    /*
-    pub fn ptr() -> *const RegisterBlock {
-        VIDEOCORE_MBOX as *const _
-    }
-
-    // TODO
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-    */
 }
 
 impl Deref for MBOX {
     type Target = RegisterBlock;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr() }
+        unsafe { &*self.as_ptr() }
     }
 }

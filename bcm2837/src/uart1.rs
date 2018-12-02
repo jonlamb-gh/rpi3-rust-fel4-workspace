@@ -107,27 +107,14 @@ impl From<u64> for UART1 {
 unsafe impl Send for UART1 {}
 
 impl UART1 {
-    pub fn ptr(&self) -> *const RegisterBlock {
+    pub fn as_ptr(&self) -> *const RegisterBlock {
         self.addr as *const _
     }
-
-    /*
-    pub fn ptr() -> *const RegisterBlock {
-        PADDR as *const _
-    }
-
-    // TODO
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-    */
 }
 
 impl Deref for UART1 {
     type Target = RegisterBlock;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr() }
+        unsafe { &*self.as_ptr() }
     }
 }
