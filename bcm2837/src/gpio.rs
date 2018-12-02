@@ -183,6 +183,7 @@ pub struct RegisterBlock {
     __reserved_3: [u32; 22],                            // 0x3C
     pub GPPUD: ReadWrite<u32, GPPUD::Register>,         // 0x94
     pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, // 0x98
+    //pub GPPUDCLK1: ReadWrite<u32, GPPUDCLK1::Register>, // 0x9C
 }
 
 #[derive(Debug, Copy, Clone)]
