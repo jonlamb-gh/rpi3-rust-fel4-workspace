@@ -32,6 +32,7 @@ pub struct RegisterBlock {
                                                   * STATUS::Register>, // 0x38 */
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct MBOX {
     addr: *const u64,
 }

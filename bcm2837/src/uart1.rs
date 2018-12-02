@@ -91,6 +91,7 @@ pub struct RegisterBlock {
     pub AUX_MU_BAUD: WriteOnly<u32, AUX_MU_BAUD::Register>, // 0x68
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct UART1 {
     addr: *const u64,
 }

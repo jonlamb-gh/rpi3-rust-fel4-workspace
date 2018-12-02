@@ -159,6 +159,7 @@ pub struct RegisterBlock {
     pub DEBUG: ReadOnly<u32, DEBUG::Register>,       // 0x20
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct DMA {
     addr: *const u64,
 }

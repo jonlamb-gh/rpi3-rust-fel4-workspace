@@ -133,6 +133,7 @@ pub struct RegisterBlock {
     pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, // 0x98
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct GPIO {
     addr: *const u64,
 }
