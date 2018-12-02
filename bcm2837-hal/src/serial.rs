@@ -30,7 +30,8 @@ impl Serial<UART1> {
 
         // map UART1 to GPIO pins
         gpio.GPFSEL1
-            .modify(GPFSEL1::FSEL14::TXD1 + GPFSEL1::FSEL15::RXD1);
+            .modify(GPFSEL1::FSEL14::AF5 + GPFSEL1::FSEL15::AF5);
+        //    .modify(GPFSEL1::FSEL14::TXD1 + GPFSEL1::FSEL15::RXD1);
 
         // Enable pins 14 and 15
         gpio.GPPUD.set(0);
