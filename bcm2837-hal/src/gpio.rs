@@ -295,11 +295,11 @@ impl<MODE> $PXi<MODE> {
 
 impl<MODE> OutputPin for $PXi<Output<MODE>> {
     fn set_high(&mut self) {
-        self.GPSET0.set(1 << self.pin);
+        self.$GPSETx.set(1 << self.pin);
     }
 
     fn set_low(&mut self) {
-        self.GPCLR0.set(1 << self.pin);
+        self.$GPCLRx.set(1 << self.pin);
     }
 }
 
@@ -309,7 +309,7 @@ impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
     }
 
     fn is_set_low(&self) -> bool {
-        self.GPLEV0.get() & (1 << self.pin) == 0
+        self.$GPLEVx.get() & (1 << self.pin) == 0
     }
 }
 
@@ -319,7 +319,7 @@ impl<MODE> InputPin for $PXi<Input<MODE>> {
     }
 
     fn is_low(&self) -> bool {
-        self.GPLEV0.get() & (1 << self.pin) == 0
+        self.$GPLEVx.get() & (1 << self.pin) == 0
     }
 }
 )+
