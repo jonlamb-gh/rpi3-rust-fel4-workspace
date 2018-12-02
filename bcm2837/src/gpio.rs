@@ -42,6 +42,30 @@ register_bitfields! {
             AF3 = 0b111,
             AF4 = 0b011,
             AF5 = 0b010
+        ],
+
+        /// Pin 6
+        FSEL6 OFFSET(18) NUMBITS(3) [
+            Input = 0b000,
+            Output = 0b001,
+            AF0 = 0b100,
+            AF1 = 0b101,
+            AF2 = 0b110,
+            AF3 = 0b111,
+            AF4 = 0b011,
+            AF5 = 0b010
+        ],
+
+        /// Pin 5
+        FSEL5 OFFSET(15) NUMBITS(3) [
+            Input = 0b000,
+            Output = 0b001,
+            AF0 = 0b100,
+            AF1 = 0b101,
+            AF2 = 0b110,
+            AF3 = 0b111,
+            AF4 = 0b011,
+            AF5 = 0b010
         ]
     ],
 
@@ -160,6 +184,18 @@ register_bitfields! {
         PUDCLK7 OFFSET(7) NUMBITS(1) [
             NoEffect = 0,
             AssertClock = 1
+        ],
+
+        /// Pin 6
+        PUDCLK6 OFFSET(6) NUMBITS(1) [
+            NoEffect = 0,
+            AssertClock = 1
+        ],
+
+        /// Pin 5
+        PUDCLK5 OFFSET(5) NUMBITS(1) [
+            NoEffect = 0,
+            AssertClock = 1
         ]
     ]
 }
@@ -182,9 +218,7 @@ pub struct RegisterBlock {
     pub GPLEV1: ReadWrite<u32>,                     // 0x38
     __reserved_3: [u32; 22],                        // 0x3C
     pub GPPUD: ReadWrite<u32, GPPUD::Register>,     // 0x94
-    pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, /* 0x98
-                                                     *pub GPPUDCLK1: ReadWrite<u32,
-                                                     * GPPUDCLK1::Register>, // 0x9C */
+    pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, //0x98
 }
 
 #[derive(Debug, Copy, Clone)]

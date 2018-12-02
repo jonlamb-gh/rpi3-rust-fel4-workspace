@@ -66,6 +66,8 @@ pub struct PushPull;
 
 pub struct Parts {
     /// Pins
+    pub p5: Pin5<Input<Floating>>,
+    pub p6: Pin6<Input<Floating>>,
     pub p7: Pin7<Input<Floating>>,
     pub p8: Pin8<Input<Floating>>,
     pub p9: Pin9<Input<Floating>>,
@@ -81,6 +83,16 @@ impl GpioExt for GPIO {
     fn split(self) -> Parts {
         // Each pin gets a copy of the GPIO vaddr
         Parts {
+            p5: Pin5 {
+                pin: 0,
+                addr: self.as_ptr() as _,
+                _mode: PhantomData,
+            },
+            p6: Pin6 {
+                pin: 0,
+                addr: self.as_ptr() as _,
+                _mode: PhantomData,
+            },
             p7: Pin7 {
                 pin: 0,
                 addr: self.as_ptr() as _,
@@ -333,6 +345,8 @@ gpio!(
     GPSET0,
     GPCLR0,
     [
+        Pin5: (p5, FSEL5, PUDCLK5, Input<Floating>),
+        Pin6: (p6, FSEL6, PUDCLK6, Input<Floating>),
         Pin7: (p7, FSEL7, PUDCLK7, Input<Floating>),
         Pin8: (p8, FSEL8, PUDCLK8, Input<Floating>),
         Pin9: (p9, FSEL9, PUDCLK9, Input<Floating>),

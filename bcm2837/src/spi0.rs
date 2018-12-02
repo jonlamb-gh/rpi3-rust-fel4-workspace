@@ -3,7 +3,7 @@
 use super::MMIO_BASE;
 
 use core::ops::Deref;
-use register::mmio::{ReadOnly, ReadWrite};
+use register::mmio::ReadWrite;
 
 register_bitfields! {
     u32,
