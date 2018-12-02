@@ -169,21 +169,22 @@ pub const PADDR: u64 = MMIO_BASE + 0x0020_0000;
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
-    pub GPFSEL0: ReadWrite<u32, GPFSEL0::Register>,     // 0x00
-    pub GPFSEL1: ReadWrite<u32, GPFSEL1::Register>,     // 0x04
-    __reserved_0: [u32; 5],                             // 0x08
-    pub GPSET0: ReadWrite<u32>,                         // 0x1C
-    pub GPSET1: ReadWrite<u32>,                         // 0x20
-    __reserved_1: u32,                                  // 0x24
-    pub GPCLR0: ReadWrite<u32>,                         // 0x28
-    pub GPCLR1: ReadWrite<u32>,                         // 0x2C
-    __reserved_2: u32,                                  // 0x30
-    pub GPLEV0: ReadWrite<u32>,                         // 0x34
-    pub GPLEV1: ReadWrite<u32>,                         // 0x38
-    __reserved_3: [u32; 22],                            // 0x3C
-    pub GPPUD: ReadWrite<u32, GPPUD::Register>,         // 0x94
-    pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, // 0x98
-    //pub GPPUDCLK1: ReadWrite<u32, GPPUDCLK1::Register>, // 0x9C
+    pub GPFSEL0: ReadWrite<u32, GPFSEL0::Register>, // 0x00
+    pub GPFSEL1: ReadWrite<u32, GPFSEL1::Register>, // 0x04
+    __reserved_0: [u32; 5],                         // 0x08
+    pub GPSET0: ReadWrite<u32>,                     // 0x1C
+    pub GPSET1: ReadWrite<u32>,                     // 0x20
+    __reserved_1: u32,                              // 0x24
+    pub GPCLR0: ReadWrite<u32>,                     // 0x28
+    pub GPCLR1: ReadWrite<u32>,                     // 0x2C
+    __reserved_2: u32,                              // 0x30
+    pub GPLEV0: ReadWrite<u32>,                     // 0x34
+    pub GPLEV1: ReadWrite<u32>,                     // 0x38
+    __reserved_3: [u32; 22],                        // 0x3C
+    pub GPPUD: ReadWrite<u32, GPPUD::Register>,     // 0x94
+    pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, /* 0x98
+                                                     *pub GPPUDCLK1: ReadWrite<u32,
+                                                     * GPPUDCLK1::Register>, // 0x9C */
 }
 
 #[derive(Debug, Copy, Clone)]
