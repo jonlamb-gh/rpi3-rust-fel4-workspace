@@ -1,5 +1,7 @@
 # Example project, render a simple clock
 
+![screenshot](https://jonlamb-gh.github.io/rpi3-fel4/rpi3_clock.png)
+
 ## Building
 
 ```bash

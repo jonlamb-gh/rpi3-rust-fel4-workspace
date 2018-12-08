@@ -63,8 +63,8 @@ pub fn run(config_vaddr: seL4_Word) {
         outline_color: RGB8::new(0xFF, 0xFF, 0xFF),
     });
 
-    let mut hour: u32 = 0;
-    let mut min: u32 = 0;
+    let mut hour: u32 = 3;
+    let mut min: u32 = 45;
     let mut sec: u32 = 0;
 
     // Clear back and front buffers
