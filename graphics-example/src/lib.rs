@@ -86,8 +86,11 @@ pub fn init(allocator: &mut Allocator, global_fault_ep_cap: seL4_CPtr) {
 
     let mut mbox: Mailbox = Mailbox::new(
         MBOX::from(vc_mbox_vaddr),
-        mbox_buffer_pmem.paddr as _,
-        mbox_buffer_pmem.vaddr as _,
+        HALPMem::new(
+            mbox_buffer_pmem.vaddr,
+            mbox_buffer_pmem.paddr as _,
+            PAGE_SIZE_4K as _,
+        ),
     );
 
     let dma_vaddr = allocator
