@@ -24,6 +24,11 @@ register_bitfields! {
             ActiveLow = 0,
             ActiveHigh = 1
         ],
+        /// Chip Select 0 Polarity
+        CSPOL0 OFFSET(21) NUMBITS(1) [
+            ActiveLow = 0,
+            ActiveHigh = 1
+        ],
         /// RX FIFO Full
         RXF OFFSET(20) NUMBITS(1) [],
         /// RX FIFO needs Reading (full)
